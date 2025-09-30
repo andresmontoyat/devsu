@@ -1,0 +1,234 @@
+{
+  "info": {
+    "_postman_id": "dc8b1e9a-4d3a-4b56-9b1a-9a6b8b6c0001",
+    "name": "Devsu Accounts API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Collection to test all Devsu Accounts endpoints. Uses {{baseUrl}} variable pointing to http://localhost:8181/devsu-accounts by default. Run requests in order to chain the created customer id."
+  },
+  "item": [
+    {
+      "name": "Customers",
+      "item": [
+        {
+          "name": "Create Customer",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/customers",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "customers"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"John Doe\",\n  \"genre\": \"MALE\",\n  \"age\": 30,\n  \"identification\": \"ID-123456\",\n  \"address\": \"123 Main St\",\n  \"phone\": \"555-1234\",\n  \"clientId\": \"client-001\",\n  \"password\": \"s3cr3tP@ss\"\n}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 201 or 200', function () {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+                  "});",
+                  "",
+                  "try {",
+                  "  var json = pm.response.json();",
+                  "  if (json && json.id) {",
+                  "    pm.collectionVariables.set('createdId', json.id);",
+                  "    pm.environment.set('createdId', json.id);",
+                  "  }",
+                  "} catch (e) {",
+                  "  // ignore if body is empty",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get All Customers",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/customers",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "customers"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Customer By Id",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/customers/{{customerId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "customers",
+                "{{customerId}}"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// fallback to createdId if customerId not set",
+                  "if (!pm.variables.get('customerId') && pm.collectionVariables.get('createdId')) {",
+                  "  pm.variables.set('customerId', pm.collectionVariables.get('createdId'));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update Customer",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/customers/{{customerId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "customers",
+                "{{customerId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"John Updated\",\n  \"genre\": \"MALE\",\n  \"age\": 31,\n  \"address\": \"456 New Ave\",\n  \"phone\": \"555-6789\"\n}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('customerId') && pm.collectionVariables.get('createdId')) {",
+                  "  pm.variables.set('customerId', pm.collectionVariables.get('createdId'));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Change Customer Status",
+          "request": {
+            "method": "PATCH",
+            "url": {
+              "raw": "{{baseUrl}}/customers/{{customerId}}/active/{{active}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "customers",
+                "{{customerId}}",
+                "active",
+                "{{active}}"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('customerId') && pm.collectionVariables.get('createdId')) {",
+                  "  pm.variables.set('customerId', pm.collectionVariables.get('createdId'));",
+                  "}",
+                  "if (!pm.variables.get('active')) {",
+                  "  pm.variables.set('active', 'true');",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete Customer",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/customers/{{customerId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "customers",
+                "{{customerId}}"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('customerId') && pm.collectionVariables.get('createdId')) {",
+                  "  pm.variables.set('customerId', pm.collectionVariables.get('createdId'));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8181/devsu-accounts"
+    },
+    {
+      "key": "customerId",
+      "value": ""
+    },
+    {
+      "key": "active",
+      "value": "true"
+    },
+    {
+      "key": "createdId",
+      "value": ""
+    }
+  ]
+}

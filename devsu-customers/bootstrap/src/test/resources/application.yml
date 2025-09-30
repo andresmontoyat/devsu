@@ -1,0 +1,90 @@
+spring:
+  application:
+    name: devsu-customers
+  profiles:
+    active: test
+
+  datasource:
+    url: jdbc:postgresql://postgres:5432/devsu_customers
+    username: udem
+    password: udem
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 30000
+  jpa:
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        jdbc:
+          lob:
+            non_contextual_creation: true
+    generate-ddl: false
+    hibernate:
+      ddl-auto: none
+    show-sql: true
+
+  liquibase:
+    enabled: true
+    change-log: classpath:db/changelog/db.changelog-master.yaml
+    url: jdbc:postgresql://postgres:5432/devsu_customers
+    user: devsu
+    password: devsu
+
+  kafka:
+    bootstrap-servers: localhost:9093
+    client-id: ${spring.application.name}
+    properties:
+      security.protocol: PLAINTEXT
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      acks: all
+      retries: 3
+      properties:
+        spring.json.add.type.headers: false
+        spring.json.trusted.packages: "*"
+
+server:
+  port: 8181
+  servlet:
+    context-path: /devsu-customers
+  shutdown: graceful
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: always
+  info:
+    env:
+      enabled: true
+
+logging:
+  level:
+    root: INFO
+    co.edu.udem: INFO
+    org.springframework: INFO
+    org.apache.kafka: ERROR
+    org.springframework.kafka: ERROR
+    kafka: ERROR
+  file:
+    name: /tmp/appLog.log
+  logback:
+    rollingpolicy:
+      file-name-pattern: appLog.log.%d{yyyy-MM-dd}.%i
+      max-file-size: 5GB
+      max-history: 3
+  pattern:
+    console: "%d{HH:mm:ss.SSS} [%thread] [trace-id=%X{trace-id}] %-5level %logger{5} - %msg%n"
+    file: "%d{HH:mm:ss.SSS} [%thread] [trace-id=%X{trace-id}] %-5level %logger{5} - %msg%n"
+
+info:
+  app:
+    name: ${spring.application.name}
+    version: 0.0.1
+    profile: test
