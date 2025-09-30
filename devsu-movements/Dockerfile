@@ -35,7 +35,7 @@ WORKDIR /app
 COPY --from=builder /workspace/app/bootstrap/build/libs/devsu-movements.jar /app/app.jar
 
 # Expose application port (configured default in application.yml)
-EXPOSE 8181
+EXPOSE 8182
 
 # Optional JVM args (e.g., -Xms256m -Xmx512m)
 ENV JAVA_OPTS=""

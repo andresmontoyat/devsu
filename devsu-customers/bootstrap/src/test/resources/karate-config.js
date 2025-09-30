@@ -12,13 +12,6 @@ function fn() {
     }
 
     const baseUrl = `${protocol}://localhost:${port}${context}`;
-
-    let UUID = Java.type('java.util.UUID');
-    function genTraceId() {
-        return UUID.randomUUID().toString().replace(/-/g, '').toLowerCase();
-    }
-
-    karate.configure('headers', { 'trace-id': genTraceId() });
     return {
         baseUrl: baseUrl,
     };
