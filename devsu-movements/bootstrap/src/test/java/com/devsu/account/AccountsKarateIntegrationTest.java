@@ -7,7 +7,7 @@ import org.springframework.boot.test.context.SpringBootTest.WebEnvironment;
 import org.springframework.boot.test.web.server.LocalServerPort;
 
 @SpringBootTest(classes = MainApplication.class, webEnvironment = WebEnvironment.RANDOM_PORT)
-class UsersKarateIntegrationTest extends TestContainerConfig {
+class AccountsKarateIntegrationTest extends TestContainerConfig {
 
     @LocalServerPort
     private int port;
@@ -20,7 +20,7 @@ class UsersKarateIntegrationTest extends TestContainerConfig {
     }
 
     @Karate.Test
-    Karate runUsersFeature() {
-        return Karate.run("classpath:features/users.feature");
+    Karate runAccountsFeature() {
+        return Karate.run("classpath:features/accounts/accounts");
     }
 }

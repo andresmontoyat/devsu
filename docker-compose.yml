@@ -1,0 +1,124 @@
+version: "3.8"
+
+services:
+  # --- Messaging stack (shared) ---
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    volumes:
+      - zookeeper_data:/var/lib/zookeeper/data
+      - zookeeper_log:/var/lib/zookeeper/log
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    depends_on:
+      - zookeeper
+    ports:
+      # Host access to Kafka
+      - "9093:9093"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      # Dual listeners: internal for containers, external for host
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_LISTENERS: INTERNAL://0.0.0.0:9092,EXTERNAL://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:9092,EXTERNAL://localhost:9093
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    depends_on:
+      kafka:
+        condition: service_started
+    ports:
+      - "8080:8080"
+    environment:
+      - KAFKA_CLUSTERS_0_NAME=local
+      - KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=kafka:9092
+      - KAFKA_CLUSTERS_0_ZOOKEEPER=zookeeper:2181
+
+  # --- Databases (separate DB per service) ---
+  postgres-customers:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: devsu_customers
+      POSTGRES_USER: devsu
+      POSTGRES_PASSWORD: devsu
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - postgres_data_customers:/var/lib/postgresql/data
+
+  postgres-movements:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: devsu_movements
+      POSTGRES_USER: devsu
+      POSTGRES_PASSWORD: devsu
+    ports:
+      - "5434:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - postgres_data_movements:/var/lib/postgresql/data
+
+  # --- Applications ---
+  customers-service:
+    build: ./devsu-customers
+    depends_on:
+      postgres-customers:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+    ports:
+      - "8181:8181"
+    environment:
+      SPRING_PROFILES_ACTIVE: local
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-customers:5432/devsu_customers
+      SPRING_DATASOURCE_USERNAME: devsu
+      SPRING_DATASOURCE_PASSWORD: devsu
+      SPRING_LIQUIBASE_URL: jdbc:postgresql://postgres-customers:5432/devsu_customers
+      SPRING_LIQUIBASE_USER: devsu
+      SPRING_LIQUIBASE_PASSWORD: devsu
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+
+  movements-service:
+    build: ./devsu-movements
+    depends_on:
+      postgres-movements:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+    ports:
+      - "8182:8182"
+    environment:
+      SPRING_PROFILES_ACTIVE: local
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-movements:5432/devsu_movements
+      SPRING_DATASOURCE_USERNAME: devsu
+      SPRING_DATASOURCE_PASSWORD: devsu
+      SPRING_LIQUIBASE_URL: jdbc:postgresql://postgres-movements:5432/devsu_movements
+      SPRING_LIQUIBASE_USER: devsu
+      SPRING_LIQUIBASE_PASSWORD: devsu
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+
+volumes:
+  zookeeper_data: {}
+  zookeeper_log: {}
+  kafka_data: {}
+  postgres_data_customers: {}
+  postgres_data_movements: {}
