@@ -1,6 +1,5 @@
 package com.devsu.account;
 
-import com.devsu.account.enums.CustomerStatus;
 import java.util.UUID;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -13,7 +12,7 @@ import lombok.NoArgsConstructor;
 @Builder
 public class Customer {
     private UUID id;
-    private CustomerStatus status;
+    private Boolean active;
     private String name;
     private String genre;
     private Integer age;

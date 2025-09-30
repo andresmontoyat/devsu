@@ -2,6 +2,8 @@ package com.devsu.account.infrastructure.entry.point.kafka.config;
 
 import com.devsu.account.Movement;
 import java.util.Map;
+
+import com.fasterxml.jackson.databind.JsonNode;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.springframework.boot.autoconfigure.kafka.KafkaProperties;
 import org.springframework.context.annotation.Bean;
@@ -17,18 +19,18 @@ import org.springframework.kafka.support.serializer.JsonDeserializer;
 public class KafkaConsumerConfig {
 
     @Bean
-    public ConsumerFactory<String, Movement> consumerFactory(KafkaProperties kafkaProperties) {
+    public ConsumerFactory<String, JsonNode> consumerFactory(KafkaProperties kafkaProperties) {
         Map<String, Object> props = kafkaProperties.buildConsumerProperties();
 
-        JsonDeserializer<Movement> jsonDeserializer = new JsonDeserializer<>(Movement.class, false);
+        JsonDeserializer<JsonNode> jsonDeserializer = new JsonDeserializer<>(JsonNode.class, false);
 
         return new DefaultKafkaConsumerFactory<>(props, new StringDeserializer(), jsonDeserializer);
     }
 
     @Bean
-    public ConcurrentKafkaListenerContainerFactory<String, Movement> kafkaListenerContainerFactory(
-            ConsumerFactory<String, Movement> consumerFactory) {
-        ConcurrentKafkaListenerContainerFactory<String, Movement> factory =
+    public ConcurrentKafkaListenerContainerFactory<String, JsonNode> kafkaListenerContainerFactory(
+            ConsumerFactory<String, JsonNode> consumerFactory) {
+        ConcurrentKafkaListenerContainerFactory<String, JsonNode> factory =
                 new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(consumerFactory);
         return factory;

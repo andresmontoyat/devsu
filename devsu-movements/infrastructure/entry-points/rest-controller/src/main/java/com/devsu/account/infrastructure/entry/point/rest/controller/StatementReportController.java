@@ -1,4 +1,4 @@
-package com.devsu.account.infrastructure.entry.point.rest;
+package com.devsu.account.infrastructure.entry.point.rest.controller;
 
 import com.devsu.account.pagination.PageRequest;
 import com.devsu.account.pagination.PageResult;

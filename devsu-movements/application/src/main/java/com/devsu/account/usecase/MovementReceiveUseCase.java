@@ -32,7 +32,7 @@ public class MovementReceiveUseCase implements ReceiveMovementUseCasePort {
                 .orElseThrow(
                         () -> new IllegalArgumentException("Customer not found with id: " + movement.getCustomerId()));
 
-        if (customer.getStatus() != CustomerStatus.ACTIVE) {
+        if (Boolean.FALSE.equals(customer.getActive())) {
             throw new IllegalArgumentException("Customer is not active. Movement cannot be processed.");
         }
 

@@ -15,4 +15,11 @@ public interface CustomerRepository {
      * @return The found customer, or optional.empty() if the customer was not found.
      */
     Optional<Customer> findById(UUID id);
+
+    /**
+     * Saves a new customer.
+     * @param customer The customer to be saved.
+     * @return The saved customer.
+     */
+    Customer save(Customer customer);
 }

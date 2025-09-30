@@ -1,4 +1,4 @@
-package com.devsu.account.infrastructure.entry.point.rest;
+package com.devsu.account.infrastructure.entry.point.rest.controller;
 
 import com.devsu.account.Movement;
 import com.devsu.account.infrastructure.entry.point.rest.model.mapper.MovementRestMapper;

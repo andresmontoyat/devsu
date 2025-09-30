@@ -1,6 +1,8 @@
 package com.devsu.account.infrastructure.entry.point.kafka;
 
+import com.devsu.account.Customer;
 import com.devsu.account.Movement;
+import com.devsu.account.usecase.port.inbound.CustomerUseCasePort;
 import com.devsu.account.usecase.port.inbound.MovementProcessUseCasePort;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -15,16 +17,16 @@ import org.springframework.stereotype.Component;
 @Slf4j
 @RequiredArgsConstructor
 @Component
-public class MovementConsumer {
+public class CustomerConsumer {
 
-    private final MovementProcessUseCasePort movementProcessUseCasePort;
+    private final CustomerUseCasePort customerUseCasePort;
     private final ObjectMapper objectMapper;
 
-    @KafkaListener(topics = "movement.process.event", groupId = "${spring.application.name}")
-    public void onMessage(@Payload JsonNode movementPayload, ConsumerRecord<String, Object> record) throws JsonProcessingException {
-        log.info("Received movement message: key={}, headers={}, payload={}", record.key(), record.headers(), movementPayload);
+    @KafkaListener(topics = "created.customers.events", groupId = "${spring.application.name}-group")
+    public void onMessageCreateCustomer(@Payload JsonNode movementPayload, ConsumerRecord<String, Object> record) throws JsonProcessingException {
+        log.info("Received customer message: key={}, headers={}, payload={}", record.key(), record.headers(), movementPayload);
 
-        var movement = objectMapper.treeToValue(movementPayload, Movement.class);
-        movementProcessUseCasePort.process(movement);
+        var customer = objectMapper.treeToValue(movementPayload, Customer.class);
+        customerUseCasePort.createCustomer(customer);
     }
 }

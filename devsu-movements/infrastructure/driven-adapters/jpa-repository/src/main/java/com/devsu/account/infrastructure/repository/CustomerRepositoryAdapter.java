@@ -23,4 +23,12 @@ public class CustomerRepositoryAdapter implements CustomerRepository {
         log.info("Found customer by id: {}", result);
         return result.map(mapper::toDomain);
     }
+
+    @Override
+    public Customer save(Customer customer) {
+        var entity = mapper.toEntity(customer);
+        entity = customerJpaRepository.save(entity);
+        log.info("Saved customer: {}", entity);
+        return mapper.toDomain(entity);
+    }
 }
