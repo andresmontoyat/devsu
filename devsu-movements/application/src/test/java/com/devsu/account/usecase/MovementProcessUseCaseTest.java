@@ -1,9 +1,23 @@
 package com.devsu.account.usecase;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
+
 import com.devsu.account.Account;
 import com.devsu.account.Movement;
 import com.devsu.account.usecase.port.outbound.AccountRepository;
 import com.devsu.account.usecase.port.outbound.MovementRepository;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.Optional;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -12,15 +26,6 @@ import org.mockito.Captor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
-import java.util.Optional;
-import java.util.UUID;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class MovementProcessUseCaseTest {
@@ -61,16 +66,15 @@ class MovementProcessUseCaseTest {
 
         when(accountRepository.findById(accountId)).thenReturn(Optional.of(account));
         when(movementRepository.save(any(Movement.class))).thenAnswer(inv -> inv.getArgument(0));
-        when(accountRepository.update(eq(accountId), any(Account.class))).thenAnswer(inv -> Optional.of(inv.getArgument(1)));
+        when(accountRepository.update(eq(accountId), any(Account.class)))
+                .thenAnswer(inv -> Optional.of(inv.getArgument(1)));
 
         // Act
         useCase.process(movement);
 
         // Assert
-        // Movement should be saved with starting balance (100.00)
         verify(movementRepository).save(argThat(m -> new BigDecimal("100.00").compareTo(m.getBalance()) == 0));
 
-        // Account should be updated with new balance 150.00
         verify(accountRepository).update(eq(accountId), accountCaptor.capture());
         assertThat(accountCaptor.getValue().getInitialBalance()).isEqualByComparingTo("150.00");
     }
@@ -85,7 +89,7 @@ class MovementProcessUseCaseTest {
 
         when(accountRepository.findById(accountId)).thenReturn(Optional.empty());
 
-        // Act + Assert
+        // Act
         assertThatThrownBy(() -> useCase.process(movement))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Account not found with id");
@@ -109,7 +113,8 @@ class MovementProcessUseCaseTest {
 
         when(accountRepository.findById(accountId)).thenReturn(Optional.of(account));
         when(movementRepository.save(any(Movement.class))).thenAnswer(inv -> inv.getArgument(0));
-        when(accountRepository.update(eq(accountId), any(Account.class))).thenAnswer(inv -> Optional.of(inv.getArgument(1)));
+        when(accountRepository.update(eq(accountId), any(Account.class)))
+                .thenAnswer(inv -> Optional.of(inv.getArgument(1)));
 
         // Act
         useCase.process(movement);
@@ -127,14 +132,13 @@ class MovementProcessUseCaseTest {
                 .initialBalance(new BigDecimal("100.00"))
                 .build();
 
-        Movement movement = Movement.builder()
-                .accountId(accountId)
-                .value(BigDecimal.ZERO)
-                .build();
+        Movement movement =
+                Movement.builder().accountId(accountId).value(BigDecimal.ZERO).build();
 
         when(accountRepository.findById(accountId)).thenReturn(Optional.of(account));
         when(movementRepository.save(any(Movement.class))).thenAnswer(inv -> inv.getArgument(0));
-        when(accountRepository.update(eq(accountId), any(Account.class))).thenAnswer(inv -> Optional.of(inv.getArgument(1)));
+        when(accountRepository.update(eq(accountId), any(Account.class)))
+                .thenAnswer(inv -> Optional.of(inv.getArgument(1)));
 
         // Act
         useCase.process(movement);

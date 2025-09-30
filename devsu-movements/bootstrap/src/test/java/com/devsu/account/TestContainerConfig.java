@@ -29,15 +29,12 @@ class TestContainerConfig {
 
     @DynamicPropertySource
     static void registerDynamicProperties(DynamicPropertyRegistry registry) {
-        // Postgres
         registry.add("spring.datasource.url", postgresContainer::getJdbcUrl);
         registry.add("spring.datasource.username", postgresContainer::getUsername);
         registry.add("spring.datasource.password", postgresContainer::getPassword);
         registry.add("spring.liquibase.url", postgresContainer::getJdbcUrl);
         registry.add("spring.liquibase.user", postgresContainer::getUsername);
         registry.add("spring.liquibase.password", postgresContainer::getPassword);
-
-        // Kafka
         registry.add("spring.kafka.bootstrap-servers", kafkaContainer::getBootstrapServers);
     }
 }

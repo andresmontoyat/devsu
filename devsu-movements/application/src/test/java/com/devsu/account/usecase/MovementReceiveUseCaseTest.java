@@ -1,5 +1,11 @@
 package com.devsu.account.usecase;
 
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
 import com.devsu.account.Account;
 import com.devsu.account.Customer;
 import com.devsu.account.Movement;
@@ -8,24 +14,16 @@ import com.devsu.account.usecase.exception.InsufficientInitialBalanceException;
 import com.devsu.account.usecase.port.outbound.AccountRepository;
 import com.devsu.account.usecase.port.outbound.CustomerRepository;
 import com.devsu.account.usecase.port.outbound.MovementPublisher;
+import java.math.BigDecimal;
+import java.util.Optional;
+import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
-
-import java.math.BigDecimal;
-import java.util.Optional;
-import java.util.UUID;
-
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class MovementReceiveUseCaseTest {
@@ -87,7 +85,8 @@ class MovementReceiveUseCaseTest {
         Movement movement = buildMovement(customerId, accountId);
 
         when(customerRepository.findById(customerId)).thenReturn(Optional.of(activeCustomer(customerId)));
-        when(accountRepository.findById(accountId)).thenReturn(Optional.of(account(accountId, true, new BigDecimal("100.00"))));
+        when(accountRepository.findById(accountId))
+                .thenReturn(Optional.of(account(accountId, true, new BigDecimal("100.00"))));
 
         useCase.receive(movement);
 
@@ -151,7 +150,8 @@ class MovementReceiveUseCaseTest {
         Movement movement = buildMovement(customerId, accountId);
 
         when(customerRepository.findById(customerId)).thenReturn(Optional.of(activeCustomer(customerId)));
-        when(accountRepository.findById(accountId)).thenReturn(Optional.of(account(accountId, false, new BigDecimal("100.00"))));
+        when(accountRepository.findById(accountId))
+                .thenReturn(Optional.of(account(accountId, false, new BigDecimal("100.00"))));
 
         assertThatThrownBy(() -> useCase.receive(movement))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -187,7 +187,8 @@ class MovementReceiveUseCaseTest {
             Movement movement = buildMovement(customerId, accountId);
 
             when(customerRepository.findById(customerId)).thenReturn(Optional.of(activeCustomer(customerId)));
-            when(accountRepository.findById(accountId)).thenReturn(Optional.of(account(accountId, true, BigDecimal.ZERO)));
+            when(accountRepository.findById(accountId))
+                    .thenReturn(Optional.of(account(accountId, true, BigDecimal.ZERO)));
 
             assertThatThrownBy(() -> useCase.receive(movement))
                     .isInstanceOf(InsufficientInitialBalanceException.class)
