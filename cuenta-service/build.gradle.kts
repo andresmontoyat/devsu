@@ -65,6 +65,8 @@ subprojects {
         reports {
             xml.required = true
             html.required = true
+            // CSV feeds the per-module coverage table of the CI summary.
+            csv.required = true
         }
     }
 
@@ -101,6 +103,6 @@ project(":bootstrap") {
 }
 
 // Lets the repository root drive the whole service through one task path (composite build).
-listOf("build", "clean", "test", "spotlessApply", "spotlessCheck").forEach { taskName ->
+listOf("assemble", "build", "clean", "test", "spotlessApply", "spotlessCheck").forEach { taskName ->
     tasks.named(taskName) { dependsOn(subprojects.map { "${it.path}:$taskName" }) }
 }

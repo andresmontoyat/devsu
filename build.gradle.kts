@@ -4,7 +4,7 @@ val services = listOf("cliente-service", "cuenta-service")
 val verified = services + "database-script"
 val formatted = verified + "e2e-tests"
 
-listOf("build", "clean", "test").forEach { taskName ->
+listOf("assemble", "build", "clean", "test").forEach { taskName ->
     tasks.register(taskName) {
         group = "devsu"
         description = "Runs '$taskName' on every service and on the BaseDatos.sql check."
