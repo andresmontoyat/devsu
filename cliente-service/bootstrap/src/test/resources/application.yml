@@ -13,6 +13,10 @@ server:
   servlet:
     context-path: /api
 
+springdoc:
+  api-docs:
+    version: openapi_3_0
+
 management:
   tracing:
     export:

@@ -1,0 +1,760 @@
+openapi: 3.0.3
+info:
+  title: cuenta-service
+  version: 1.0.0
+  description: |
+    Cuentas, movimientos y estado de cuenta (F1 a F4). Los clientes llegan desde cliente-service por
+    Kafka a una proyección local: una cuenta solo se abre para un cliente conocido y activo.
+
+    Contrato fuente: las interfaces y modelos de los controladores se generan desde este archivo.
+    Errores en formato RFC 9457 (`application/problem+json`) con `code` estable y `traceId`.
+servers:
+  - url: /api/v1
+    description: Versión 1 de la API (versionado en la ruta).
+tags:
+  - name: Cuentas
+    description: Apertura, consulta y modificación de cuentas (sin borrado; se desactivan).
+  - name: Movimientos
+    description: Depósitos y retiros; el signo del valor define el tipo.
+  - name: Reportes
+    description: Estado de cuenta por rango de fechas y cliente.
+
+paths:
+  /cuentas:
+    get:
+      tags: [Cuentas]
+      operationId: listarCuentas
+      summary: Lista cuentas paginadas, opcionalmente de un cliente
+      parameters:
+        - name: cliente
+          in: query
+          description: '`clienteId` (UUID) del titular.'
+          schema:
+            type: string
+          example: 0b6f5c9e-1d2a-4c3b-8e7f-1a2b3c4d5e02
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Página de cuentas.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CuentaPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+    post:
+      tags: [Cuentas]
+      operationId: abrirCuenta
+      summary: Abre una cuenta
+      description: |
+        El cliente debe existir y estar activo en la proyección local; si el evento de alta aún no llegó
+        por Kafka, responde `422 CLIENTE_NO_DISPONIBLE`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CuentaRequest'
+            example:
+              numeroCuenta: '585545'
+              tipoCuenta: Corriente
+              saldoInicial: 1000
+              estado: true
+              clienteId: 0b6f5c9e-1d2a-4c3b-8e7f-1a2b3c4d5e01
+      responses:
+        '201':
+          description: Cuenta abierta.
+          headers:
+            Location:
+              description: URL de la cuenta.
+              schema:
+                type: string
+                format: uri
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CuentaResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableContent'
+
+  /cuentas/{numeroCuenta}:
+    parameters:
+      - $ref: '#/components/parameters/NumeroCuenta'
+    get:
+      tags: [Cuentas]
+      operationId: obtenerCuenta
+      summary: Obtiene una cuenta con su saldo disponible
+      responses:
+        '200':
+          description: La cuenta.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CuentaResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [Cuentas]
+      operationId: reemplazarCuenta
+      summary: Reemplaza los datos de una cuenta
+      description: El saldo inicial solo se puede cambiar mientras la cuenta no tenga movimientos.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CuentaUpdateRequest'
+      responses:
+        '200':
+          description: Cuenta actualizada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CuentaResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableContent'
+    patch:
+      tags: [Cuentas]
+      operationId: modificarCuenta
+      summary: Modifica algunos campos de una cuenta (JSON Merge Patch)
+      description: |
+        RFC 7396. `{"estado": false}` desactiva la cuenta. `null` o campos desconocidos se rechazan.
+      requestBody:
+        required: true
+        content:
+          application/merge-patch+json:
+            schema:
+              $ref: '#/components/schemas/CuentaPatch'
+            example:
+              estado: false
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CuentaPatch'
+      responses:
+        '200':
+          description: Cuenta actualizada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CuentaResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableContent'
+
+  /movimientos:
+    get:
+      tags: [Movimientos]
+      operationId: listarMovimientos
+      summary: Lista movimientos paginados, por cuenta y rango de fechas
+      parameters:
+        - name: cuenta
+          in: query
+          description: Número de cuenta.
+          schema:
+            type: string
+          example: '225487'
+        - name: fechaInicio
+          in: query
+          description: |
+            Primer día del rango, inclusive (`yyyy-MM-dd`). Se envía junto con `fechaFin`; el rango no puede
+            superar 366 días. Los días se cuentan en la zona `America/Guayaquil`.
+          schema:
+            type: string
+            format: date
+        - name: fechaFin
+          in: query
+          description: Último día del rango, inclusive (`yyyy-MM-dd`). Se envía junto con `fechaInicio`.
+          schema:
+            type: string
+            format: date
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Página de movimientos, del más reciente al más antiguo.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MovimientoPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+    post:
+      tags: [Movimientos]
+      operationId: registrarMovimiento
+      summary: Registra un depósito o un retiro (F2, F3)
+      description: |
+        Valor positivo = depósito, negativo = retiro. Actualiza el saldo disponible y guarda el saldo
+        anterior y el resultante. Un retiro mayor al saldo responde `422 SALDO_NO_DISPONIBLE` con el
+        mensaje "Saldo no disponible".
+
+        Con `Idempotency-Key`, un reintento con la misma clave y el mismo cuerpo devuelve el movimiento
+        original sin aplicarlo de nuevo.
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: false
+          description: 1 a 255 caracteres ASCII visibles; vigente 24 horas.
+          schema:
+            type: string
+          example: pago-2026-10-29-0001
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MovimientoRequest'
+            examples:
+              retiro:
+                summary: Retiro de 575
+                value:
+                  numeroCuenta: '478758'
+                  valor: -575
+              deposito:
+                summary: Depósito de 600
+                value:
+                  numeroCuenta: '225487'
+                  valor: 600
+      responses:
+        '201':
+          description: Movimiento registrado (o el original, si es un reintento idempotente).
+          headers:
+            Location:
+              description: URL del movimiento.
+              schema:
+                type: string
+                format: uri
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MovimientoResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          description: |
+            `SALDO_NO_DISPONIBLE`, `CUENTA_INACTIVA`, `VALOR_MOVIMIENTO_INVALIDO` o
+            `IDEMPOTENCY_KEY_REUTILIZADA`.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+              example:
+                type: https://api.devsu-bank.example/errores/saldo-no-disponible
+                title: Saldo no disponible
+                status: 422
+                detail: Saldo no disponible
+                instance: /api/movimientos
+                code: SALDO_NO_DISPONIBLE
+                traceId: 4bf92f3577b34da6a3ce929d0e0e4736
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  /movimientos/{movimientoId}:
+    parameters:
+      - name: movimientoId
+        in: path
+        required: true
+        description: Identificador del movimiento (UUID).
+        schema:
+          type: string
+    get:
+      tags: [Movimientos]
+      operationId: obtenerMovimiento
+      summary: Obtiene un movimiento
+      responses:
+        '200':
+          description: El movimiento.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MovimientoResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [Movimientos]
+      operationId: corregirMovimiento
+      summary: Corrige el último movimiento de la cuenta
+      description: |
+        Solo el movimiento más reciente de la cuenta se puede corregir (los anteriores responden
+        `409 MOVIMIENTO_NO_MODIFICABLE`); el saldo se recalcula.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MovimientoUpdateRequest'
+      responses:
+        '200':
+          description: Movimiento corregido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MovimientoResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableContent'
+
+  /reportes:
+    get:
+      tags: [Reportes]
+      operationId: generarEstadoCuenta
+      summary: Estado de cuenta por rango de fechas y cliente (F4)
+      description: |
+        Cuentas del cliente con sus saldos y totales del rango, y el detalle de movimientos con las claves
+        del JSON de ejemplo del enunciado. "Saldo Inicial" de cada fila es el saldo antes de ese
+        movimiento. Las fechas se interpretan en la zona `America/Guayaquil`.
+      parameters:
+        - name: cliente
+          in: query
+          required: true
+          description: '`clienteId` (UUID).'
+          schema:
+            type: string
+          example: 0b6f5c9e-1d2a-4c3b-8e7f-1a2b3c4d5e02
+        - name: fechaInicio
+          in: query
+          required: true
+          description: Primer día del rango, inclusive (`yyyy-MM-dd`; p. ej. la fecha de hoy).
+          schema:
+            type: string
+            format: date
+        - name: fechaFin
+          in: query
+          required: true
+          description: Último día del rango, inclusive (`yyyy-MM-dd`); máximo 366 días desde `fechaInicio`.
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Estado de cuenta.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EstadoCuentaResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+components:
+  parameters:
+    NumeroCuenta:
+      name: numeroCuenta
+      in: path
+      required: true
+      description: Número de cuenta (6 a 20 dígitos).
+      schema:
+        type: string
+      example: '478758'
+    Page:
+      name: page
+      in: query
+      description: Número de página, desde 0.
+      schema:
+        type: integer
+        format: int32
+        minimum: 0
+        default: 0
+    Size:
+      name: size
+      in: query
+      description: Elementos por página.
+      schema:
+        type: integer
+        format: int32
+        minimum: 1
+        maximum: 100
+        default: 20
+
+  responses:
+    BadRequest:
+      description: |
+        Datos inválidos: `VALIDACION_FALLIDA`, `DATO_INVALIDO`, `CUERPO_INVALIDO`, `PARAMETRO_INVALIDO` o
+        `RANGO_FECHAS_INVALIDO`.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    NotFound:
+      description: '`CUENTA_NO_ENCONTRADA`, `MOVIMIENTO_NO_ENCONTRADO` o `CLIENTE_NO_ENCONTRADO`.'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    Conflict:
+      description: |
+        `NUMERO_CUENTA_DUPLICADO`, `CONFLICTO_DE_CONCURRENCIA`, `MOVIMIENTO_NO_MODIFICABLE`,
+        `SALDO_INICIAL_NO_MODIFICABLE` o `IDEMPOTENCY_KEY_EN_CURSO`.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    UnprocessableContent:
+      description: |
+        Regla de negocio incumplida: `CLIENTE_NO_DISPONIBLE`, `CUENTA_INACTIVA`, `SALDO_NO_DISPONIBLE`,
+        `VALOR_MOVIMIENTO_INVALIDO` o `REGLA_DE_NEGOCIO`.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    ServiceUnavailable:
+      description: |
+        `IDEMPOTENCY_NO_DISPONIBLE`: el almacén de `Idempotency-Key` no responde. Reintentar tras
+        `Retry-After`.
+      headers:
+        Retry-After:
+          description: Segundos a esperar.
+          schema:
+            type: integer
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+
+  schemas:
+    TipoCuenta:
+      type: string
+      enum: [AHORROS, CORRIENTE]
+    TipoMovimiento:
+      type: string
+      enum: [DEPOSITO, RETIRO]
+
+    CuentaRequest:
+      type: object
+      required: [numeroCuenta, tipoCuenta, saldoInicial, clienteId]
+      properties:
+        numeroCuenta:
+          type: string
+          pattern: '^\d{6,20}$'
+        tipoCuenta:
+          type: string
+          description: 'Ahorros o Corriente (sin distinguir mayúsculas).'
+          pattern: '.*\S.*'
+        saldoInicial:
+          type: number
+          minimum: 0
+          description: Hasta 2 decimales.
+        estado:
+          type: boolean
+          default: true
+        clienteId:
+          type: string
+          description: '`clienteId` (UUID) de un cliente existente y activo.'
+          pattern: '.*\S.*'
+
+    CuentaUpdateRequest:
+      type: object
+      required: [tipoCuenta, saldoInicial, estado, clienteId]
+      properties:
+        tipoCuenta:
+          type: string
+          description: 'Ahorros o Corriente (sin distinguir mayúsculas).'
+          pattern: '.*\S.*'
+        saldoInicial:
+          type: number
+          minimum: 0
+        estado:
+          type: boolean
+        clienteId:
+          type: string
+          pattern: '.*\S.*'
+
+    CuentaPatch:
+      type: object
+      description: Campos modificables; todos opcionales, ninguno puede ser `null`.
+      additionalProperties: false
+      properties:
+        tipoCuenta:
+          type: string
+        saldoInicial:
+          type: number
+        estado:
+          type: boolean
+
+    CuentaResponse:
+      type: object
+      required: [numeroCuenta, tipoCuenta, saldoInicial, saldoDisponible, estado, clienteId]
+      properties:
+        numeroCuenta:
+          type: string
+        tipoCuenta:
+          $ref: '#/components/schemas/TipoCuenta'
+        saldoInicial:
+          type: number
+        saldoDisponible:
+          type: number
+        estado:
+          type: boolean
+        clienteId:
+          type: string
+          format: uuid
+      example:
+        numeroCuenta: '225487'
+        tipoCuenta: CORRIENTE
+        saldoInicial: 100.00
+        saldoDisponible: 700.00
+        estado: true
+        clienteId: 0b6f5c9e-1d2a-4c3b-8e7f-1a2b3c4d5e02
+
+    CuentaPage:
+      type: object
+      required: [items, page]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/CuentaResponse'
+        page:
+          $ref: '#/components/schemas/PageMetadata'
+
+    MovimientoRequest:
+      type: object
+      required: [numeroCuenta, valor]
+      properties:
+        numeroCuenta:
+          type: string
+          pattern: '.*\S.*'
+        valor:
+          type: number
+          description: Distinto de 0, hasta 2 decimales. Positivo = depósito, negativo = retiro.
+        tipoMovimiento:
+          type: string
+          description: Opcional (`Deposito` o `Retiro`); si se envía debe coincidir con el signo.
+
+    MovimientoUpdateRequest:
+      type: object
+      required: [valor]
+      properties:
+        valor:
+          type: number
+        tipoMovimiento:
+          type: string
+
+    MovimientoResponse:
+      type: object
+      required: [movimientoId, fecha, numeroCuenta, tipoMovimiento, valor, saldoInicial, saldoDisponible]
+      properties:
+        movimientoId:
+          type: string
+          format: uuid
+        fecha:
+          type: string
+          format: date-time
+        numeroCuenta:
+          type: string
+        tipoMovimiento:
+          $ref: '#/components/schemas/TipoMovimiento'
+        valor:
+          type: number
+        saldoInicial:
+          type: number
+          description: Saldo de la cuenta antes del movimiento.
+        saldoDisponible:
+          type: number
+          description: Saldo de la cuenta después del movimiento.
+      example:
+        movimientoId: 3f2c1d4e-5b6a-4c7d-8e9f-0a1b2c3d4e5f
+        fecha: '2022-02-10T15:30:00Z'
+        numeroCuenta: '225487'
+        tipoMovimiento: DEPOSITO
+        valor: 600.00
+        saldoInicial: 100.00
+        saldoDisponible: 700.00
+
+    MovimientoPage:
+      type: object
+      required: [items, page]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/MovimientoResponse'
+        page:
+          $ref: '#/components/schemas/PageMetadata'
+
+    EstadoCuentaResponse:
+      type: object
+      required: [cliente, fechaInicio, fechaFin, cuentas, movimientos]
+      properties:
+        cliente:
+          $ref: '#/components/schemas/ClienteResumen'
+        fechaInicio:
+          type: string
+          format: date
+        fechaFin:
+          type: string
+          format: date
+        cuentas:
+          type: array
+          items:
+            $ref: '#/components/schemas/CuentaResumen'
+        movimientos:
+          type: array
+          items:
+            $ref: '#/components/schemas/FilaEstadoCuenta'
+
+    ClienteResumen:
+      type: object
+      required: [clienteId, nombre]
+      properties:
+        clienteId:
+          type: string
+          format: uuid
+        nombre:
+          type: string
+
+    CuentaResumen:
+      type: object
+      required: [numeroCuenta, tipoCuenta, saldoInicial, saldoDisponible, estado, totalCreditos, totalDebitos]
+      properties:
+        numeroCuenta:
+          type: string
+        tipoCuenta:
+          $ref: '#/components/schemas/TipoCuenta'
+        saldoInicial:
+          type: number
+        saldoDisponible:
+          type: number
+        estado:
+          type: boolean
+        totalCreditos:
+          type: number
+          description: Suma de depósitos del rango.
+        totalDebitos:
+          type: number
+          description: Suma de retiros del rango, en positivo.
+
+    FilaEstadoCuenta:
+      type: object
+      description: Una fila por movimiento, con las claves exactas del JSON de ejemplo del enunciado.
+      required: [Fecha, Cliente, Numero Cuenta, Tipo, Saldo Inicial, Estado, Movimiento, Saldo Disponible]
+      properties:
+        Fecha:
+          type: string
+          description: Fecha del movimiento, `d/M/yyyy`.
+        Cliente:
+          type: string
+        Numero Cuenta:
+          type: string
+        Tipo:
+          type: string
+          description: '`Ahorros` o `Corriente`.'
+        Saldo Inicial:
+          type: number
+          description: Saldo antes del movimiento.
+        Estado:
+          type: boolean
+        Movimiento:
+          type: number
+        Saldo Disponible:
+          type: number
+      example:
+        Fecha: 10/2/2022
+        Cliente: Marianela Montalvo
+        Numero Cuenta: '225487'
+        Tipo: Corriente
+        Saldo Inicial: 100
+        Estado: true
+        Movimiento: 600
+        Saldo Disponible: 700
+
+    PageMetadata:
+      type: object
+      required: [number, size, totalElements, totalPages]
+      properties:
+        number:
+          type: integer
+          format: int32
+        size:
+          type: integer
+          format: int32
+        totalElements:
+          type: integer
+          format: int64
+        totalPages:
+          type: integer
+          format: int64
+
+    Problem:
+      type: object
+      description: RFC 9457 Problem Details con los miembros `code`, `traceId` y `errors`.
+      required: [type, title, status, code]
+      properties:
+        type:
+          type: string
+          format: uri
+        title:
+          type: string
+        status:
+          type: integer
+          format: int32
+        detail:
+          type: string
+        instance:
+          type: string
+        code:
+          type: string
+          description: Código estable para decidir en el cliente; no cambia aunque cambie el texto.
+        traceId:
+          type: string
+          description: Identificador de la traza (W3C) para buscarla en Tempo.
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/FieldError'
+
+    FieldError:
+      type: object
+      required: [field, message]
+      properties:
+        field:
+          type: string
+        message:
+          type: string

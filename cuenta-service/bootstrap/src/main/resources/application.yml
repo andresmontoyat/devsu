@@ -59,6 +59,17 @@ server:
   error:
     include-stacktrace: never
 
+springdoc:
+  api-docs:
+    # Publishes openapi/cuenta-service.yaml (see OpenApiConfig), so the version must match the contract.
+    version: openapi_3_0
+    enabled: ${SPRINGDOC_API_DOCS_ENABLED:true}
+  swagger-ui:
+    # Turn off in production environments (api-design.md: Swagger UI in non-prod only).
+    enabled: ${SPRINGDOC_SWAGGER_UI_ENABLED:true}
+    path: /swagger-ui.html
+  show-actuator: false
+
 management:
   # Actuator lives on its own port so it is never published next to the API.
   server:

@@ -66,9 +66,9 @@ class CuentaControllerTest {
     ArgumentCaptor<CreateCuentaCommand> command =
         ArgumentCaptor.forClass(CreateCuentaCommand.class);
 
-    mvc.perform(post("/cuentas").contentType(MediaType.APPLICATION_JSON).content(CUERPO))
+    mvc.perform(post("/v1/cuentas").contentType(MediaType.APPLICATION_JSON).content(CUERPO))
         .andExpect(status().isCreated())
-        .andExpect(header().string("Location", "http://localhost/cuentas/225487"))
+        .andExpect(header().string("Location", "http://localhost/v1/cuentas/225487"))
         .andExpect(jsonPath("$.numeroCuenta").value("225487"))
         .andExpect(jsonPath("$.tipoCuenta").value("CORRIENTE"))
         .andExpect(jsonPath("$.saldoDisponible").value(100.00))
@@ -82,7 +82,7 @@ class CuentaControllerTest {
 
   @Test
   void should_answer_400_with_field_errors_when_the_body_is_incomplete() throws Exception {
-    mvc.perform(post("/cuentas").contentType(MediaType.APPLICATION_JSON).content("{}"))
+    mvc.perform(post("/v1/cuentas").contentType(MediaType.APPLICATION_JSON).content("{}"))
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.code").value("VALIDACION_FALLIDA"))
         .andExpect(jsonPath("$.errors[?(@.field == 'numeroCuenta')]").exists())
@@ -95,10 +95,10 @@ class CuentaControllerTest {
         .willThrow(new NumeroCuentaDuplicadoException(NUMERO))
         .willThrow(new ClienteNoDisponibleException(MARIANELA));
 
-    mvc.perform(post("/cuentas").contentType(MediaType.APPLICATION_JSON).content(CUERPO))
+    mvc.perform(post("/v1/cuentas").contentType(MediaType.APPLICATION_JSON).content(CUERPO))
         .andExpect(status().isConflict())
         .andExpect(jsonPath("$.code").value("NUMERO_CUENTA_DUPLICADO"));
-    mvc.perform(post("/cuentas").contentType(MediaType.APPLICATION_JSON).content(CUERPO))
+    mvc.perform(post("/v1/cuentas").contentType(MediaType.APPLICATION_JSON).content(CUERPO))
         .andExpect(status().isUnprocessableContent())
         .andExpect(jsonPath("$.code").value("CLIENTE_NO_DISPONIBLE"));
   }
@@ -109,10 +109,10 @@ class CuentaControllerTest {
     given(getCuenta.execute(new NumeroCuenta("999999")))
         .willThrow(new CuentaNoEncontradaException(new NumeroCuenta("999999")));
 
-    mvc.perform(get("/cuentas/225487"))
+    mvc.perform(get("/v1/cuentas/225487"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.saldoInicial").value(100.00));
-    mvc.perform(get("/cuentas/999999"))
+    mvc.perform(get("/v1/cuentas/999999"))
         .andExpect(status().isNotFound())
         .andExpect(jsonPath("$.code").value("CUENTA_NO_ENCONTRADA"));
   }
@@ -123,7 +123,7 @@ class CuentaControllerTest {
     given(listCuentas.execute(new CuentasQuery(MARIANELA, solicitud)))
         .willReturn(new Pagina<>(List.of(corriente225487()), solicitud, 1));
 
-    mvc.perform(get("/cuentas").param("cliente", CLIENTE))
+    mvc.perform(get("/v1/cuentas").param("cliente", CLIENTE))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.items[0].numeroCuenta").value("225487"))
         .andExpect(jsonPath("$.page.totalElements").value(1));
@@ -134,7 +134,7 @@ class CuentaControllerTest {
     given(updateCuenta.execute(any())).willReturn(corriente225487());
 
     mvc.perform(
-            put("/cuentas/225487")
+            put("/v1/cuentas/225487")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(
                     """
@@ -154,7 +154,7 @@ class CuentaControllerTest {
     given(updateCuenta.execute(any())).willThrow(new SaldoInicialNoModificableException(NUMERO));
 
     mvc.perform(
-            put("/cuentas/225487")
+            put("/v1/cuentas/225487")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(
                     "{\"tipoCuenta\":\"AHORROS\",\"saldoInicial\":5,\"estado\":true,\"clienteId\":\""
@@ -169,12 +169,13 @@ class CuentaControllerTest {
     given(patchCuenta.execute(any())).willReturn(corriente225487());
     MediaType mergePatch = MediaType.valueOf("application/merge-patch+json");
 
-    mvc.perform(patch("/cuentas/225487").contentType(mergePatch).content("{\"estado\":false}"))
+    mvc.perform(patch("/v1/cuentas/225487").contentType(mergePatch).content("{\"estado\":false}"))
         .andExpect(status().isOk());
-    mvc.perform(patch("/cuentas/225487").contentType(mergePatch).content("{\"saldoDisponible\":1}"))
+    mvc.perform(
+            patch("/v1/cuentas/225487").contentType(mergePatch).content("{\"saldoDisponible\":1}"))
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.errors[0].field").value("saldoDisponible"));
-    mvc.perform(patch("/cuentas/225487").contentType(mergePatch).content("{\"estado\":null}"))
+    mvc.perform(patch("/v1/cuentas/225487").contentType(mergePatch).content("{\"estado\":null}"))
         .andExpect(status().isBadRequest());
 
     then(patchCuenta).should().execute(new PatchCuentaCommand("225487", null, false));
@@ -182,7 +183,7 @@ class CuentaControllerTest {
 
   @Test
   void should_answer_405_because_accounts_are_never_deleted() throws Exception {
-    mvc.perform(delete("/cuentas/225487"))
+    mvc.perform(delete("/v1/cuentas/225487"))
         .andExpect(status().isMethodNotAllowed())
         .andExpect(jsonPath("$.code").value("METODO_NO_PERMITIDO"));
   }

@@ -11,31 +11,23 @@ import com.devsu.bank.cuenta.application.query.PaginaSolicitud;
 import com.devsu.bank.cuenta.domain.model.Movimiento;
 import com.devsu.bank.cuenta.domain.model.MovimientoId;
 import com.devsu.bank.cuenta.domain.model.NumeroCuenta;
-import com.devsu.bank.cuenta.domain.reporte.RangoFechas;
-import com.devsu.bank.cuenta.infrastructure.entry.points.rest.controller.dto.MovimientoRequest;
-import com.devsu.bank.cuenta.infrastructure.entry.points.rest.controller.dto.MovimientoResponse;
-import com.devsu.bank.cuenta.infrastructure.entry.points.rest.controller.dto.MovimientoUpdateRequest;
-import com.devsu.bank.cuenta.infrastructure.entry.points.rest.controller.dto.PageResponse;
-import com.devsu.bank.cuenta.infrastructure.entry.points.rest.controller.mapper.CuentaRestMapper;
+import com.devsu.bank.cuenta.infrastructure.entry.points.rest.controller.generated.api.MovimientosApi;
+import com.devsu.bank.cuenta.infrastructure.entry.points.rest.controller.generated.model.MovimientoPage;
+import com.devsu.bank.cuenta.infrastructure.entry.points.rest.controller.generated.model.MovimientoRequest;
+import com.devsu.bank.cuenta.infrastructure.entry.points.rest.controller.generated.model.MovimientoResponse;
+import com.devsu.bank.cuenta.infrastructure.entry.points.rest.controller.generated.model.MovimientoUpdateRequest;
 import com.devsu.bank.cuenta.infrastructure.entry.points.rest.controller.mapper.MovimientoRestMapper;
-import jakarta.validation.Valid;
 import java.net.URI;
+import java.time.LocalDate;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
-/** F1 CRU + F2/F3 of movements. No DELETE: the ledger is append-only except for its tail. */
+/**
+ * Implements the interface generated from openapi/cuenta-service.yaml; routes live in the contract.
+ */
 @RestController
-@RequestMapping("/movimientos")
-public class MovimientoController {
+public class MovimientoController implements MovimientosApi {
 
   private final RegisterMovimientoPort registerMovimiento;
   private final CorrectMovimientoPort correctMovimiento;
@@ -53,15 +45,14 @@ public class MovimientoController {
     this.listMovimientos = listMovimientos;
   }
 
-  @PostMapping
-  public ResponseEntity<MovimientoResponse> registrar(
-      @Valid @RequestBody MovimientoRequest request,
-      @RequestHeader(name = IdempotencyKeys.HEADER, required = false) String idempotencyKey) {
+  @Override
+  public ResponseEntity<MovimientoResponse> registrarMovimiento(
+      MovimientoRequest request, String idempotencyKey) {
     RegisterMovimientoCommand command =
         new RegisterMovimientoCommand(
-            request.numeroCuenta(),
-            request.valor(),
-            request.tipoMovimiento(),
+            request.getNumeroCuenta(),
+            request.getValor(),
+            request.getTipoMovimiento(),
             IdempotencyKeys.validar(idempotencyKey));
     Movimiento movimiento = registerMovimiento.execute(command).movimiento();
     URI location =
@@ -72,33 +63,31 @@ public class MovimientoController {
     return ResponseEntity.created(location).body(MovimientoRestMapper.toResponse(movimiento));
   }
 
-  @GetMapping
-  public PageResponse<MovimientoResponse> listar(
-      @RequestParam(required = false) String cuenta,
-      @RequestParam(required = false) String fecha,
-      @RequestParam(defaultValue = "0") int page,
-      @RequestParam(defaultValue = "20") int size) {
+  @Override
+  public ResponseEntity<MovimientoPage> listarMovimientos(
+      String cuenta, LocalDate fechaInicio, LocalDate fechaFin, Integer page, Integer size) {
     MovimientosQuery query =
         new MovimientosQuery(
             cuenta == null ? null : new NumeroCuenta(cuenta),
-            fecha == null ? null : RangoFechas.parse(fecha),
+            RangosDeFechas.opcional(fechaInicio, fechaFin),
             new PaginaSolicitud(page, size));
-    return CuentaRestMapper.toPage(
-        listMovimientos.execute(query), MovimientoRestMapper::toResponse);
+    return ResponseEntity.ok(MovimientoRestMapper.toPage(listMovimientos.execute(query)));
   }
 
-  @GetMapping("/{movimientoId}")
-  public MovimientoResponse obtener(@PathVariable String movimientoId) {
-    return MovimientoRestMapper.toResponse(getMovimiento.execute(MovimientoId.of(movimientoId)));
+  @Override
+  public ResponseEntity<MovimientoResponse> obtenerMovimiento(String movimientoId) {
+    return ResponseEntity.ok(
+        MovimientoRestMapper.toResponse(getMovimiento.execute(MovimientoId.of(movimientoId))));
   }
 
   /** Corrects the account's latest movement; any older one answers 409. */
-  @PutMapping("/{movimientoId}")
-  public MovimientoResponse corregir(
-      @PathVariable String movimientoId, @Valid @RequestBody MovimientoUpdateRequest request) {
+  @Override
+  public ResponseEntity<MovimientoResponse> corregirMovimiento(
+      String movimientoId, MovimientoUpdateRequest request) {
     CorrectMovimientoCommand command =
         new CorrectMovimientoCommand(
-            MovimientoId.of(movimientoId), request.valor(), request.tipoMovimiento());
-    return MovimientoRestMapper.toResponse(correctMovimiento.execute(command).movimiento());
+            MovimientoId.of(movimientoId), request.getValor(), request.getTipoMovimiento());
+    return ResponseEntity.ok(
+        MovimientoRestMapper.toResponse(correctMovimiento.execute(command).movimiento()));
   }
 }

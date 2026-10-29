@@ -13,4 +13,9 @@ public abstract class AbstractIntegrationTest {
   protected String baseUrl() {
     return "http://localhost:" + port + "/api";
   }
+
+  /** Base URL of version 1 of the REST API (api-design.md §5.1). */
+  protected String apiUrl() {
+    return baseUrl() + "/v1";
+  }
 }

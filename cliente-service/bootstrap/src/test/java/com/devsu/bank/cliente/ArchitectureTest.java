@@ -8,6 +8,7 @@ import com.tngtech.archunit.core.importer.ImportOption;
 import com.tngtech.archunit.junit.AnalyzeClasses;
 import com.tngtech.archunit.junit.ArchTest;
 import com.tngtech.archunit.lang.ArchRule;
+import org.springframework.web.bind.annotation.RestController;
 
 @AnalyzeClasses(
     packages = "com.devsu.bank.cliente",
@@ -128,4 +129,13 @@ class ArchitectureTest {
           .andShould()
           .notHaveSimpleName("MessagePublisherPort")
           .because("Per-entity publisher ports invite dual writes; use OutboxWriter instead");
+
+  @ArchTest
+  static final ArchRule controllersShouldImplementTheContract =
+      classes()
+          .that()
+          .areAnnotatedWith(RestController.class)
+          .should()
+          .implement(JavaClass.Predicates.resideInAPackage("..generated.api.."))
+          .because("Routes and payloads come from the OpenAPI contract (api-design.md §19)");
 }

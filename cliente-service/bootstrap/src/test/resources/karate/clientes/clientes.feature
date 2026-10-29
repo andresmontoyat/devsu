@@ -24,7 +24,7 @@ Feature: /clientes — CRUD completo de clientes (F1)
     And request nuevoCliente
     When method post
     Then status 201
-    And match header Location contains '/api/clientes/'
+    And match header Location contains '/api/v1/clientes/'
     And match response ==
       """
       {
@@ -72,7 +72,9 @@ Feature: /clientes — CRUD completo de clientes (F1)
     Then status 200
     And match response contains { estado: false, edad: 36 }
 
+    # Clients such as Postman send Accept: application/json even on a DELETE without body.
     Given path 'clientes', clienteId
+    And header Accept = 'application/json'
     When method delete
     Then status 204
 

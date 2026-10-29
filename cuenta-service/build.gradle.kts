@@ -56,7 +56,8 @@ subprojects {
         testLogging { events("passed", "skipped", "failed") }
     }
 
-    val jacocoExclusions = listOf("**/config/**", "**/*Application*")
+    // Generated from the OpenAPI contract: its behavior is covered through the controllers.
+    val jacocoExclusions = listOf("**/config/**", "**/*Application*", "**/generated/**")
     // Domain and use cases carry the business rules: they get the stricter gate (gradle.md §4.3).
     val minimumLineCoverage = if (name in setOf("domain", "application")) "0.90" else "0.80"
 

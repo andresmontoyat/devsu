@@ -31,6 +31,7 @@ import com.devsu.bank.cuenta.domain.exception.SaldoNoDisponibleException;
 import com.devsu.bank.cuenta.domain.model.NumeroCuenta;
 import com.devsu.bank.cuenta.domain.reporte.RangoFechas;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -44,7 +45,7 @@ import org.springframework.test.web.servlet.ResultActions;
 class MovimientoControllerTest {
 
   private static final String RETIRO = "{\"numeroCuenta\":\"478758\",\"valor\":-575}";
-  private static final String URL = "/movimientos/" + MOVIMIENTO_ID.value();
+  private static final String URL = "/v1/movimientos/" + MOVIMIENTO_ID.value();
 
   @Autowired private MockMvc mvc;
   @MockitoBean private RegisterMovimientoPort registerMovimiento;
@@ -101,7 +102,7 @@ class MovimientoControllerTest {
         .andExpect(jsonPath("$.code").value("SALDO_NO_DISPONIBLE"))
         .andExpect(jsonPath("$.title").value("Saldo no disponible"))
         .andExpect(jsonPath("$.detail").value("Saldo no disponible"))
-        .andExpect(jsonPath("$.instance").value("/movimientos"));
+        .andExpect(jsonPath("$.instance").value("/v1/movimientos"));
   }
 
   @Test
@@ -159,27 +160,50 @@ class MovimientoControllerTest {
             listMovimientos.execute(
                 new MovimientosQuery(
                     new NumeroCuenta("225487"),
-                    RangoFechas.parse("2022-02-01,2022-02-28"),
+                    new RangoFechas(LocalDate.of(2022, 2, 1), LocalDate.of(2022, 2, 28)),
                     pagina)))
         .willReturn(new Pagina<>(List.of(deposito600().movimiento()), pagina, 1));
 
     mvc.perform(get(URL)).andExpect(status().isOk()).andExpect(jsonPath("$.valor").value(600.00));
     mvc.perform(
-            get("/movimientos").param("cuenta", "225487").param("fecha", "2022-02-01,2022-02-28"))
+            get("/v1/movimientos")
+                .param("cuenta", "225487")
+                .param("fechaInicio", "2022-02-01")
+                .param("fechaFin", "2022-02-28"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.items[0].numeroCuenta").value("225487"));
   }
 
   @Test
-  void should_reject_an_invalid_date_range_and_deleting_movements() throws Exception {
-    mvc.perform(get("/movimientos").param("fecha", "2022-02-28,2022-02-01"))
+  void should_reject_an_inverted_date_range_and_deleting_movements() throws Exception {
+    mvc.perform(
+            get("/v1/movimientos")
+                .param("fechaInicio", "2022-02-28")
+                .param("fechaFin", "2022-02-01"))
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.code").value("RANGO_FECHAS_INVALIDO"));
     mvc.perform(delete(URL)).andExpect(status().isMethodNotAllowed());
   }
 
+  @Test
+  void should_reject_a_range_with_only_one_date() throws Exception {
+    mvc.perform(get("/v1/movimientos").param("fechaInicio", "2022-02-01"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").value("RANGO_FECHAS_INVALIDO"));
+  }
+
+  @Test
+  void should_reject_a_date_that_is_not_iso_8601() throws Exception {
+    mvc.perform(
+            get("/v1/movimientos")
+                .param("fechaInicio", "01/02/2022")
+                .param("fechaFin", "2022-02-28"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").value("PARAMETRO_INVALIDO"));
+  }
+
   private ResultActions registrar(String cuerpo, String idempotencyKey) throws Exception {
-    var request = post("/movimientos").contentType(MediaType.APPLICATION_JSON).content(cuerpo);
+    var request = post("/v1/movimientos").contentType(MediaType.APPLICATION_JSON).content(cuerpo);
     if (idempotencyKey != null) {
       request.header("Idempotency-Key", idempotencyKey);
     }

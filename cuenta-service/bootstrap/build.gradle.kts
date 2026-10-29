@@ -11,6 +11,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-validation")
     implementation("org.springframework:spring-tx")
     implementation("org.springframework.boot:spring-boot-starter-opentelemetry")
+    implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:${property("springdoc.version")}")
     runtimeOnly("io.micrometer:micrometer-registry-prometheus")
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")

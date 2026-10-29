@@ -44,7 +44,7 @@ class OutboxDispatchIT extends AbstractIntegrationTest {
 
   private String crearCliente() {
     Map<?, ?> creado =
-        RestClient.create(baseUrl())
+        RestClient.create(apiUrl())
             .post()
             .uri("/clientes")
             .contentType(MediaType.APPLICATION_JSON)

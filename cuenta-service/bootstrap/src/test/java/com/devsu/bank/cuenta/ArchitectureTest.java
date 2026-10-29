@@ -8,6 +8,7 @@ import com.tngtech.archunit.core.importer.ImportOption;
 import com.tngtech.archunit.junit.AnalyzeClasses;
 import com.tngtech.archunit.junit.ArchTest;
 import com.tngtech.archunit.lang.ArchRule;
+import org.springframework.web.bind.annotation.RestController;
 
 @AnalyzeClasses(
     packages = "com.devsu.bank.cuenta",
@@ -111,4 +112,13 @@ class ArchitectureTest {
           .dependOnClassesThat()
           .resideInAnyPackage("org.springframework.data.redis..", "io.lettuce..")
           .because("Valkey is reached only through the idempotency store port");
+
+  @ArchTest
+  static final ArchRule controllersShouldImplementTheContract =
+      classes()
+          .that()
+          .areAnnotatedWith(RestController.class)
+          .should()
+          .implement(JavaClass.Predicates.resideInAPackage("..generated.api.."))
+          .because("Routes and payloads come from the OpenAPI contract (api-design.md §19)");
 }

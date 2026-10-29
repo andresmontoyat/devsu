@@ -12,7 +12,7 @@ Feature: /cuentas — CRU de cuentas (F1)
     And request nuevaCuenta
     When method post
     Then status 201
-    And match header Location contains '/api/cuentas/' + numero
+    And match header Location contains '/api/v1/cuentas/' + numero
     And match response == { numeroCuenta: '#(numero)', tipoCuenta: 'CORRIENTE', saldoInicial: 1000.00, saldoDisponible: 1000.00, estado: true, clienteId: '#(joseLema)' }
 
   Scenario: consultar, listar por cliente, reemplazar y desactivar
