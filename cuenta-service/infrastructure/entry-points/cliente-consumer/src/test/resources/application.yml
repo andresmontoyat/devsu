@@ -1,0 +1,17 @@
+spring:
+  application:
+    name: cuenta-service
+  kafka:
+    consumer:
+      group-id: cuenta-service-test
+      auto-offset-reset: earliest
+    listener:
+      ack-mode: manual
+
+cuenta:
+  consumer:
+    topic: clientes.cliente.events
+    retry:
+      initial-interval: 100ms
+      multiplier: 2.0
+      max-retries: 2

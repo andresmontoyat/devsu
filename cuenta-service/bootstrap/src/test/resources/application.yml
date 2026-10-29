@@ -26,3 +26,24 @@ logging:
   structured:
     format:
       console: ""
+
+spring.kafka:
+  consumer:
+    group-id: cuenta-service-test
+    auto-offset-reset: earliest
+  listener:
+    ack-mode: manual
+
+cuenta:
+  reporte:
+    zona: America/Guayaquil
+  idempotency:
+    key-prefix: "idem:movimiento:"
+    ttl: 24h
+    in-progress-ttl: 1m
+  consumer:
+    topic: clientes.cliente.events
+    retry:
+      initial-interval: 100ms
+      multiplier: 2.0
+      max-retries: 2

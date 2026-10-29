@@ -8,6 +8,8 @@ dependencies {
     implementation(project(":metrics-publisher"))
 
     implementation("org.springframework.boot:spring-boot-starter-actuator")
+    implementation("org.springframework.boot:spring-boot-starter-validation")
+    implementation("org.springframework:spring-tx")
     implementation("org.springframework.boot:spring-boot-starter-opentelemetry")
     runtimeOnly("io.micrometer:micrometer-registry-prometheus")
 
@@ -16,6 +18,10 @@ dependencies {
     testImplementation("org.testcontainers:testcontainers-junit-jupiter")
     testImplementation("org.testcontainers:testcontainers-postgresql")
     testImplementation("org.testcontainers:testcontainers-kafka")
+    testImplementation("org.springframework:spring-web")
+    testImplementation("org.springframework:spring-jdbc")
+    testImplementation("org.apache.kafka:kafka-clients")
+    testImplementation("org.awaitility:awaitility")
     testImplementation("com.tngtech.archunit:archunit-junit5:${property("archunit.version")}")
     testImplementation("io.karatelabs:karate-junit6:${property("karate.version")}")
 }
