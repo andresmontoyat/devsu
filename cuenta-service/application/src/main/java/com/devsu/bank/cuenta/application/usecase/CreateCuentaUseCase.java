@@ -53,6 +53,6 @@ public final class CreateCuentaUseCase implements CreateCuentaPort {
     if (cuentas.existsByNumero(cuenta.getNumeroCuenta())) {
       throw new NumeroCuentaDuplicadoException(cuenta.getNumeroCuenta());
     }
-    return cuentas.save(cuenta);
+    return cuentas.insert(cuenta);
   }
 }

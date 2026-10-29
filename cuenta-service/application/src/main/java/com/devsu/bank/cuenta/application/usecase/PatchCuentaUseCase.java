@@ -26,7 +26,7 @@ public final class PatchCuentaUseCase implements PatchCuentaPort {
         () -> {
           Cuenta actual = Busquedas.cuentaBloqueada(cuentas, numero);
           Cuenta tipada = tipo == null ? actual : actual.cambiarTipo(tipo);
-          return cuentas.save(conEstado(tipada, command.estado()));
+          return cuentas.update(conEstado(tipada, command.estado()));
         });
   }
 

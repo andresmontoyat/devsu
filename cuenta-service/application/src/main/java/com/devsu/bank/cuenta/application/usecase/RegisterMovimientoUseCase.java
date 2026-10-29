@@ -49,7 +49,7 @@ public final class RegisterMovimientoUseCase implements RegisterMovimientoPort {
   }
 
   private ResultadoMovimiento guardar(ResultadoMovimiento resultado) {
-    Cuenta cuenta = cuentas.save(resultado.cuenta());
+    Cuenta cuenta = cuentas.update(resultado.cuenta());
     return new ResultadoMovimiento(cuenta, movimientos.save(resultado.movimiento()));
   }
 }

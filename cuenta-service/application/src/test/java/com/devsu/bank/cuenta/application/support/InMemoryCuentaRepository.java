@@ -3,6 +3,8 @@ package com.devsu.bank.cuenta.application.support;
 import com.devsu.bank.cuenta.application.port.outbound.CuentaRepositoryPort;
 import com.devsu.bank.cuenta.application.query.Pagina;
 import com.devsu.bank.cuenta.application.query.PaginaSolicitud;
+import com.devsu.bank.cuenta.domain.exception.CuentaNoEncontradaException;
+import com.devsu.bank.cuenta.domain.exception.NumeroCuentaDuplicadoException;
 import com.devsu.bank.cuenta.domain.model.ClienteId;
 import com.devsu.bank.cuenta.domain.model.Cuenta;
 import com.devsu.bank.cuenta.domain.model.NumeroCuenta;
@@ -29,9 +31,23 @@ public final class InMemoryCuentaRepository implements CuentaRepositoryPort {
   }
 
   @Override
-  public Cuenta save(Cuenta cuenta) {
+  public Cuenta insert(Cuenta cuenta) {
+    if (cuentas.containsKey(cuenta.getNumeroCuenta())) {
+      throw new NumeroCuentaDuplicadoException(cuenta.getNumeroCuenta());
+    }
+    return guardar(cuenta, 0);
+  }
+
+  @Override
+  public Cuenta update(Cuenta cuenta) {
     Cuenta previa = cuentas.get(cuenta.getNumeroCuenta());
-    long version = previa == null ? 0 : previa.getVersion() + 1;
+    if (previa == null) {
+      throw new CuentaNoEncontradaException(cuenta.getNumeroCuenta());
+    }
+    return guardar(cuenta, previa.getVersion() + 1);
+  }
+
+  private Cuenta guardar(Cuenta cuenta, long version) {
     Cuenta persistida =
         Cuenta.builder()
             .numeroCuenta(cuenta.getNumeroCuenta())

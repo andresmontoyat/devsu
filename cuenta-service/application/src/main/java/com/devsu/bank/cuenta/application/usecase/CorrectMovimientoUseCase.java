@@ -41,7 +41,7 @@ public final class CorrectMovimientoUseCase implements CorrectMovimientoPort {
           exigirUltimo(movimiento);
           ResultadoMovimiento corregido = cuenta.corregirUltimoMovimiento(movimiento, valor);
           return new ResultadoMovimiento(
-              cuentas.save(corregido.cuenta()), movimientos.save(corregido.movimiento()));
+              cuentas.update(corregido.cuenta()), movimientos.save(corregido.movimiento()));
         });
   }
 

@@ -50,6 +50,6 @@ public final class CuentaHarness {
   }
 
   public Cuenta abrir(String numero, TipoCuenta tipo, String saldo, ClienteId cliente) {
-    return cuentas.save(Cuenta.abrir(new NumeroCuenta(numero), tipo, Monto.of(saldo), cliente));
+    return cuentas.insert(Cuenta.abrir(new NumeroCuenta(numero), tipo, Monto.of(saldo), cliente));
   }
 }

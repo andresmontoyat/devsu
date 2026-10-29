@@ -41,7 +41,7 @@ public final class UpdateCuentaUseCase implements UpdateCuentaPort {
           exigirMismoTitular(actual, titular);
           Cuenta conSaldo = conSaldoInicial(actual, saldoInicial);
           Cuenta tipada = conSaldo.cambiarTipo(tipo);
-          return cuentas.save(command.estado() ? tipada.activar() : tipada.desactivar());
+          return cuentas.update(command.estado() ? tipada.activar() : tipada.desactivar());
         });
   }
 

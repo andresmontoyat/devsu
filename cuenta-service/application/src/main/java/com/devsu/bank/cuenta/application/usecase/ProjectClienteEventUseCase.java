@@ -70,6 +70,6 @@ public final class ProjectClienteEventUseCase implements ProjectClienteEventPort
     ClienteProyeccion base =
         actual.orElseGet(() -> ClienteProyeccion.desde(id, NOMBRE_DESCONOCIDO, false, -1));
     clientes.save(base.eliminar(version));
-    cuentas.findByClienteId(id).forEach(cuenta -> cuentas.save(cuenta.desactivar()));
+    cuentas.findByClienteId(id).forEach(cuenta -> cuentas.update(cuenta.desactivar()));
   }
 }

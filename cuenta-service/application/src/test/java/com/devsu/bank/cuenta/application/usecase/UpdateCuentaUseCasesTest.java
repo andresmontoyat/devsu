@@ -122,7 +122,7 @@ class UpdateCuentaUseCasesTest {
             .cuentas
             .get(numero)
             .aplicarMovimiento(MovimientoId.generar(), Monto.of("10"), AHORA);
-    harness.cuentas.save(resultado.cuenta());
+    harness.cuentas.update(resultado.cuenta());
     harness.movimientos.save(resultado.movimiento());
   }
 }
