@@ -41,7 +41,7 @@ servicios; `--wait` termina cuando todos están `healthy`. La primera vez compil
 
 Al arrancar, Liquibase crea los esquemas y carga los **datos de ejemplo del enunciado** (contexto `demo`):
 los clientes Jose Lema, Marianela Montalvo y Juan Osorio y las cuentas del caso 2. Los casos 3 a 5 se
-ejecutan por la API (colección Postman o suite E2E).
+ejecutan por la API: ver [Cómo probar la aplicación](#cómo-probar-la-aplicación).
 
 ```bash
 docker compose -f docker/docker-compose.yaml logs -f cuenta-service   # logs
@@ -51,6 +51,131 @@ docker compose -f docker/docker-compose.yaml down -v                  # parar y 
 **Configuración.** Contraseñas y puertos tienen valores por defecto para uso local. Para cambiarlos, copiar
 `docker/.env.example` a `docker/.env` (por ejemplo, si el puerto 5432 ya está ocupado:
 `POSTGRES_PORT=15432`). `LIQUIBASE_CONTEXTS=` vacío arranca sin datos de ejemplo.
+
+## Cómo probar la aplicación
+
+Con el stack levantado (sección anterior) hay tres formas de probar, de la más manual a la más automática.
+
+### 1. Paso a paso con curl
+
+Los bloques se pueden copiar en orden en una terminal. Los casos 3 a 5 modifican saldos: se ejecutan **una vez**
+sobre un stack recién levantado (`docker compose -f docker/docker-compose.yaml down -v` lo reinicia). Agregar
+`| jq` al final de cada comando formatea el JSON, si está instalado.
+
+```bash
+CLIENTES=http://localhost:8081/api
+CUENTAS=http://localhost:8082/api
+JOSE=0b6f5c9e-1d2a-4c3b-8e7f-1a2b3c4d5e01        # ids fijos de los clientes de ejemplo
+MARIANELA=0b6f5c9e-1d2a-4c3b-8e7f-1a2b3c4d5e02
+HOY=$(TZ=America/Guayaquil date +%F)              # el reporte usa el día de Ecuador
+```
+
+**Caso 1 — clientes** (cargados por la seed) y alta de uno nuevo:
+
+```bash
+curl -s "$CLIENTES/clientes?page=0&size=10"; echo
+
+curl -si -X POST "$CLIENTES/clientes" -H 'Content-Type: application/json' -d '{
+  "nombre": "Ana Torres", "genero": "FEMENINO", "edad": 28, "identificacion": "1799999999",
+  "direccion": "Av. Shyris", "telefono": "0991234567", "contrasena": "9876", "estado": true}'; echo
+```
+
+La respuesta es `201` con un header `Location` que apunta a `/api/clientes/{clienteId}` y nunca incluye la contraseña.
+
+**Caso 2 — cuentas de Marianela Montalvo** (seed):
+
+```bash
+curl -s "$CUENTAS/cuentas?cliente=$MARIANELA"; echo
+```
+
+**Caso 3 — nueva cuenta corriente 585545 para Jose Lema:**
+
+```bash
+curl -s -X POST "$CUENTAS/cuentas" -H 'Content-Type: application/json' \
+  -d "{\"numeroCuenta\": \"585545\", \"tipoCuenta\": \"Corriente\", \"saldoInicial\": 1000, \"estado\": true, \"clienteId\": \"$JOSE\"}"; echo
+```
+
+**Caso 4 — movimientos** (F2: el signo define depósito o retiro y el saldo se actualiza):
+
+```bash
+for mov in '478758 -575' '225487 600' '495878 150' '496825 -540'; do
+  set -- $mov
+  curl -s -X POST "$CUENTAS/movimientos" -H 'Content-Type: application/json' \
+    -d "{\"numeroCuenta\": \"$1\", \"valor\": $2}"; echo
+done
+```
+
+**F3 — retiro sin saldo** (la cuenta 496825 quedó en 0):
+
+```bash
+curl -si -X POST "$CUENTAS/movimientos" -H 'Content-Type: application/json' \
+  -d '{"numeroCuenta": "496825", "valor": -100}'; echo
+```
+
+Responde `422` con `"detail": "Saldo no disponible"` y el saldo no cambia.
+
+**Caso 5 — estado de cuenta de Marianela Montalvo** (F4):
+
+```bash
+curl -s "$CUENTAS/reportes?fecha=$HOY,$HOY&cliente=$MARIANELA"; echo
+```
+
+Devuelve las filas `225487 · Corriente · 100 → 600 → 700` y `496825 · Ahorros · 540 → -540 → 0`, como en el
+ejemplo del enunciado (ver [API](#api)).
+
+**Reintento seguro con `Idempotency-Key`:** el segundo envío devuelve el mismo movimiento, sin volver a sumarlo.
+
+```bash
+for intento in 1 2; do
+  curl -s -X POST "$CUENTAS/movimientos" -H 'Content-Type: application/json' \
+    -H 'Idempotency-Key: demo-deposito-1' -d '{"numeroCuenta": "495878", "valor": 10}'; echo
+done
+```
+
+**Comunicación asíncrona:** un cliente creado en cliente-service llega a cuenta-service por Kafka y desde ese
+momento se le pueden abrir cuentas.
+
+```bash
+ID=$(curl -s -X POST "$CLIENTES/clientes" -H 'Content-Type: application/json' -d '{
+  "nombre": "Luis Paz", "genero": "MASCULINO", "edad": 45, "identificacion": "1788888888",
+  "direccion": "Av. Amazonas", "telefono": "0998887777", "contrasena": "4321", "estado": true}' \
+  | sed -E 's/.*"clienteId":"([^"]+)".*/\1/')
+sleep 1
+curl -s -X POST "$CUENTAS/cuentas" -H 'Content-Type: application/json' \
+  -d "{\"numeroCuenta\": \"700000001\", \"tipoCuenta\": \"Ahorros\", \"saldoInicial\": 50, \"clienteId\": \"$ID\"}"; echo
+```
+
+### 2. Colección Postman
+
+Importar `postman/devsu-bank.postman_collection.json` y `postman/devsu-bank.postman_environment.json`, elegir el
+entorno *devsu-bank local* y ejecutar la colección con el *Collection Runner*. La carpeta **0. Casos de uso del
+enunciado** reproduce los casos 1–5 (sobre un stack recién levantado) y las carpetas 1–4 prueban cada recurso.
+Cada petición tiene sus aserciones. Sin Postman instalado:
+
+```bash
+npx newman run postman/devsu-bank.postman_collection.json -e postman/devsu-bank.postman_environment.json
+```
+
+### 3. Suite automática contra el stack
+
+```bash
+./gradlew e2eTest
+```
+
+Ejecuta con Karate los casos 1–5 y la propagación asíncrona de cambios y bajas de clientes. Crea sus propios
+datos, así que se puede repetir sin reiniciar el stack. Si se cambiaron los puertos:
+`E2E_CLIENTE_URL=http://localhost:18081/api E2E_CUENTA_URL=http://localhost:18082/api ./gradlew e2eTest`.
+
+### Observabilidad
+
+Grafana en http://localhost:3000 → *Explore* → **Tempo** muestra cada petición como una traza que cruza ambos
+servicios a través de Kafka; el `traceId` es el mismo que devuelven los errores `problem+json`. Las métricas
+`usecase_operation_*` y `http_server_requests_*` están en **Prometheus**. El actuator no se publica fuera de la
+red de compose:
+
+```bash
+docker compose -f docker/docker-compose.yaml exec cuenta-service wget -qO- http://127.0.0.1:9082/actuator/health; echo
+```
 
 ## API
 
@@ -162,6 +287,25 @@ La cobertura de líneas se exige por módulo en el build: 90 % en `domain` y `ap
 resto (`jacocoTestCoverageVerification`). Actualmente: cliente-service 97.5 %, cuenta-service 96.7 %.
 El CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) compila, ejecuta `./gradlew build` y publica
 el reporte de cobertura en cada PR.
+
+## Comandos
+
+| Comando | Qué hace | Requiere |
+|---------|----------|----------|
+| `docker compose -f docker/docker-compose.yaml up -d --build --wait` | Compila las imágenes y levanta todo el stack | Docker |
+| `docker compose -f docker/docker-compose.yaml ps` | Estado y salud de cada contenedor | Docker |
+| `docker compose -f docker/docker-compose.yaml logs -f cliente-service` | Logs de un servicio | Docker |
+| `docker compose -f docker/docker-compose.yaml down -v` | Para el stack y borra los datos | Docker |
+| `./gradlew build` | Compila y ejecuta todas las pruebas y los umbrales de cobertura | JDK 21, Docker |
+| `./gradlew test` | Solo las pruebas | JDK 21, Docker |
+| `./gradlew assemble` | Compila y empaqueta sin probar | JDK 21 |
+| `./gradlew e2eTest` | Casos de uso contra el stack levantado | JDK 21, stack arriba |
+| `./gradlew generateBaseDatos` | Regenera `BaseDatos.sql` desde los changelogs | JDK 21, Docker |
+| `./gradlew spotlessApply` | Formatea el código (google-java-format) | JDK 21 |
+| `./gradlew -p cuenta-service :domain:test` | Pruebas de un módulo de un servicio | JDK 21 |
+
+Reportes tras `./gradlew build`: pruebas en `*/build/reports/tests/test/index.html`, cobertura en
+`*/build/reports/jacoco/test/html/index.html` y Karate en `*/bootstrap/build/karate-reports/`.
 
 ## Estructura
 
