@@ -3,6 +3,8 @@
 Prueba técnica Devsu (Java): dos microservicios bancarios — **clientes** y **cuentas/movimientos** —
 comunicados de forma asíncrona, desplegables con Docker.
 
+**Repositorio:** https://github.com/andresmontoyat/devsu
+
 **Stack:** Java 21 · Spring Boot 4.1 · JPA (Hibernate 7) · PostgreSQL 17 · Liquibase · Kafka 4 (KRaft) ·
 Valkey 9 · Micrometer + OpenTelemetry · Testcontainers · Karate · ArchUnit · Gradle 9.
 
