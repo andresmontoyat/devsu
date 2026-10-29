@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: cliente-service
-  version: 1.0.3
+  version: 2.0.0
   description: |
     Clientes del banco (F1: CRUD). Cada alta, cambio o baja publica un evento en Kafka
     (`clientes.cliente.events`) mediante un transactional outbox; cuenta-service lo consume.

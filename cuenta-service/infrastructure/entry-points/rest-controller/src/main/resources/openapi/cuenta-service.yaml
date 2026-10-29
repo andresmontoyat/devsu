@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: cuenta-service
-  version: 1.0.3
+  version: 2.0.0
   description: |
     Cuentas, movimientos y estado de cuenta (F1 a F4). Los clientes llegan desde cliente-service por
     Kafka a una proyección local: una cuenta solo se abre para un cliente conocido y activo.

@@ -6,6 +6,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-10-29
+
 ### Added
 - Contrato OpenAPI por servicio (`openapi/cliente-service.yaml`, `openapi/cuenta-service.yaml`) con ejemplos
   y todos los errores, publicado en `/api/v3/api-docs` con Swagger UI en `/api/swagger-ui.html`.
@@ -60,7 +62,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Colección Postman con entorno, README, `docs/arquitectura.md` y CI de GitHub Actions (build, test y reporte
   de cobertura).
 
-[Unreleased]: https://github.com/andresmontoyat/devsu/compare/v1.0.2...HEAD
+[Unreleased]: https://github.com/andresmontoyat/devsu/compare/v2.0.0...HEAD
+[2.0.0]: https://github.com/andresmontoyat/devsu/compare/v1.0.2...v2.0.0
 [1.0.2]: https://github.com/andresmontoyat/devsu/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/andresmontoyat/devsu/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/andresmontoyat/devsu/releases/tag/v1.0.0
