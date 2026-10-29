@@ -7,7 +7,8 @@ spring:
     open-in-view: false
   liquibase:
     change-log: classpath:/changelog/db.changelog-master.yaml
-    contexts: test
+    # demo seeds the three exercise clients (projection) and the use case 2 accounts.
+    contexts: test,demo
 
 server:
   servlet:

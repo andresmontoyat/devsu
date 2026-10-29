@@ -1,0 +1,38 @@
+package com.devsu.bank.cuenta.infrastructure.entry.points.rest.controller;
+
+import com.devsu.bank.cuenta.application.port.inbound.GenerateEstadoCuentaPort;
+import com.devsu.bank.cuenta.application.query.EstadoCuentaQuery;
+import com.devsu.bank.cuenta.domain.model.ClienteId;
+import com.devsu.bank.cuenta.domain.reporte.RangoFechas;
+import com.devsu.bank.cuenta.infrastructure.entry.points.rest.controller.dto.EstadoCuentaResponse;
+import com.devsu.bank.cuenta.infrastructure.entry.points.rest.controller.mapper.EstadoCuentaRestMapper;
+import java.time.ZoneId;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+/**
+ * F4: {@code GET /reportes?fecha=yyyy-MM-dd,yyyy-MM-dd&cliente={clienteId}} — inclusive range in
+ * the bank's time zone; a single date means that one day.
+ */
+@RestController
+@RequestMapping("/reportes")
+public class ReporteController {
+
+  private final GenerateEstadoCuentaPort generateEstadoCuenta;
+  private final ZoneId zona;
+
+  public ReporteController(GenerateEstadoCuentaPort generateEstadoCuenta, ZoneId zona) {
+    this.generateEstadoCuenta = generateEstadoCuenta;
+    this.zona = zona;
+  }
+
+  @GetMapping
+  public EstadoCuentaResponse estadoDeCuenta(
+      @RequestParam String fecha, @RequestParam String cliente) {
+    EstadoCuentaQuery query =
+        new EstadoCuentaQuery(ClienteId.of(cliente), RangoFechas.parse(fecha));
+    return EstadoCuentaRestMapper.toResponse(generateEstadoCuenta.execute(query), zona);
+  }
+}

@@ -31,93 +31,132 @@ import com.devsu.bank.cuenta.application.usecase.RegisterMovimientoUseCase;
 import com.devsu.bank.cuenta.application.usecase.UpdateCuentaUseCase;
 import com.devsu.bank.cuenta.domain.model.Cuenta;
 import com.devsu.bank.cuenta.domain.model.ResultadoMovimiento;
+import com.devsu.bank.cuenta.infrastructure.driven.adapters.metrics.support.ChainablePort;
 import java.time.Clock;
 import java.time.ZoneId;
+import java.util.List;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 
-/** The only place that names use case implementations. */
+/** The only place that names use case implementations: each port is exposed as its chain head. */
 @Configuration(proxyBeanMethods = false)
 public class UseCaseConfig {
 
   @Bean
+  @Primary
   CreateCuentaPort createCuentaPort(
       TransactionPort<Cuenta> transaction,
       CuentaRepositoryPort cuentas,
-      ClienteProyeccionRepositoryPort clientes) {
-    return new CreateCuentaUseCase(transaction, cuentas, clientes);
+      ClienteProyeccionRepositoryPort clientes,
+      List<ChainablePort<?>> links) {
+    return Chains.build(
+        CreateCuentaPort.class, new CreateCuentaUseCase(transaction, cuentas, clientes), links);
   }
 
   @Bean
-  GetCuentaPort getCuentaPort(CuentaRepositoryPort cuentas) {
-    return new GetCuentaUseCase(cuentas);
+  @Primary
+  GetCuentaPort getCuentaPort(CuentaRepositoryPort cuentas, List<ChainablePort<?>> links) {
+    return Chains.build(GetCuentaPort.class, new GetCuentaUseCase(cuentas), links);
   }
 
   @Bean
-  ListCuentasPort listCuentasPort(CuentaRepositoryPort cuentas) {
-    return new ListCuentasUseCase(cuentas);
+  @Primary
+  ListCuentasPort listCuentasPort(CuentaRepositoryPort cuentas, List<ChainablePort<?>> links) {
+    return Chains.build(ListCuentasPort.class, new ListCuentasUseCase(cuentas), links);
   }
 
   @Bean
+  @Primary
   UpdateCuentaPort updateCuentaPort(
       TransactionPort<Cuenta> transaction,
       CuentaRepositoryPort cuentas,
-      MovimientoRepositoryPort movimientos) {
-    return new UpdateCuentaUseCase(transaction, cuentas, movimientos);
+      MovimientoRepositoryPort movimientos,
+      List<ChainablePort<?>> links) {
+    return Chains.build(
+        UpdateCuentaPort.class, new UpdateCuentaUseCase(transaction, cuentas, movimientos), links);
   }
 
   @Bean
+  @Primary
   PatchCuentaPort patchCuentaPort(
-      TransactionPort<Cuenta> transaction, CuentaRepositoryPort cuentas) {
-    return new PatchCuentaUseCase(transaction, cuentas);
+      TransactionPort<Cuenta> transaction,
+      CuentaRepositoryPort cuentas,
+      List<ChainablePort<?>> links) {
+    return Chains.build(PatchCuentaPort.class, new PatchCuentaUseCase(transaction, cuentas), links);
   }
 
   /** The idempotency decorator sits in front of the use case and outside its transaction. */
   @Bean
+  @Primary
   RegisterMovimientoPort registerMovimientoPort(
       TransactionPort<ResultadoMovimiento> transaction,
       CuentaRepositoryPort cuentas,
       MovimientoRepositoryPort movimientos,
       IdempotencyStorePort idempotencyStore,
-      Clock clock) {
+      Clock clock,
+      List<ChainablePort<?>> links) {
     RegisterMovimientoUseCase core =
         new RegisterMovimientoUseCase(transaction, cuentas, movimientos, clock);
-    return new IdempotentRegisterMovimientoUseCase(core, idempotencyStore, movimientos, cuentas);
+    return Chains.build(
+        RegisterMovimientoPort.class,
+        new IdempotentRegisterMovimientoUseCase(core, idempotencyStore, movimientos, cuentas),
+        links);
   }
 
   @Bean
+  @Primary
   CorrectMovimientoPort correctMovimientoPort(
       TransactionPort<ResultadoMovimiento> transaction,
       CuentaRepositoryPort cuentas,
-      MovimientoRepositoryPort movimientos) {
-    return new CorrectMovimientoUseCase(transaction, cuentas, movimientos);
+      MovimientoRepositoryPort movimientos,
+      List<ChainablePort<?>> links) {
+    return Chains.build(
+        CorrectMovimientoPort.class,
+        new CorrectMovimientoUseCase(transaction, cuentas, movimientos),
+        links);
   }
 
   @Bean
-  GetMovimientoPort getMovimientoPort(MovimientoRepositoryPort movimientos) {
-    return new GetMovimientoUseCase(movimientos);
+  @Primary
+  GetMovimientoPort getMovimientoPort(
+      MovimientoRepositoryPort movimientos, List<ChainablePort<?>> links) {
+    return Chains.build(GetMovimientoPort.class, new GetMovimientoUseCase(movimientos), links);
   }
 
   @Bean
-  ListMovimientosPort listMovimientosPort(MovimientoRepositoryPort movimientos, ZoneId zona) {
-    return new ListMovimientosUseCase(movimientos, zona);
+  @Primary
+  ListMovimientosPort listMovimientosPort(
+      MovimientoRepositoryPort movimientos, ZoneId zona, List<ChainablePort<?>> links) {
+    return Chains.build(
+        ListMovimientosPort.class, new ListMovimientosUseCase(movimientos, zona), links);
   }
 
   @Bean
+  @Primary
   GenerateEstadoCuentaPort generateEstadoCuentaPort(
       ClienteProyeccionRepositoryPort clientes,
       CuentaRepositoryPort cuentas,
       MovimientoRepositoryPort movimientos,
-      ZoneId zona) {
-    return new GenerateEstadoCuentaUseCase(clientes, cuentas, movimientos, zona);
+      ZoneId zona,
+      List<ChainablePort<?>> links) {
+    return Chains.build(
+        GenerateEstadoCuentaPort.class,
+        new GenerateEstadoCuentaUseCase(clientes, cuentas, movimientos, zona),
+        links);
   }
 
   @Bean
+  @Primary
   ProjectClienteEventPort projectClienteEventPort(
       TransactionPort<Void> transaction,
       ClienteProyeccionRepositoryPort clientes,
       CuentaRepositoryPort cuentas,
-      ProcessedEventRepositoryPort procesados) {
-    return new ProjectClienteEventUseCase(transaction, clientes, cuentas, procesados);
+      ProcessedEventRepositoryPort procesados,
+      List<ChainablePort<?>> links) {
+    return Chains.build(
+        ProjectClienteEventPort.class,
+        new ProjectClienteEventUseCase(transaction, clientes, cuentas, procesados),
+        links);
   }
 }
