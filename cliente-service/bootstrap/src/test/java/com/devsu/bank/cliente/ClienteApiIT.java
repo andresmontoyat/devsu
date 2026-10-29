@@ -14,6 +14,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.web.client.RestClient;
+import tools.jackson.databind.JsonNode;
 
 /** F6: the whole service — HTTP, use case, PostgreSQL and the outbox relay — in one flow. */
 class ClienteApiIT extends AbstractIntegrationTest {
@@ -55,6 +56,25 @@ class ClienteApiIT extends AbstractIntegrationTest {
     await()
         .atMost(Duration.ofSeconds(15))
         .untilAsserted(() -> assertThat(estadoOutbox(clienteId)).isEqualTo("PUBLISHED"));
+  }
+
+  @Test
+  void should_publish_the_openapi_contract_and_the_swagger_ui() {
+    RestClient client = RestClient.create(baseUrl());
+
+    JsonNode docs = client.get().uri("/v3/api-docs").retrieve().body(JsonNode.class);
+    ResponseEntity<String> swaggerUi =
+        client.get().uri("/swagger-ui/index.html").retrieve().toEntity(String.class);
+
+    assertThat(docs.path("openapi").asString()).isEqualTo("3.0.3");
+    assertThat(docs.path("info").path("title").asString()).isEqualTo("cliente-service");
+    assertThat(docs.path("paths").size()).isEqualTo(2);
+    assertThat(docs.path("paths").has("/clientes/{clienteId}")).isTrue();
+    assertThat(
+            docs.at("/components/schemas/ClienteRequest/properties/contrasena/format").asString())
+        .isEqualTo("password");
+    assertThat(swaggerUi.getStatusCode().is2xxSuccessful()).isTrue();
+    assertThat(swaggerUi.getBody()).contains("Swagger UI");
   }
 
   private String hashGuardado(String clienteId) {
