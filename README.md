@@ -343,6 +343,113 @@ Cada fila de `movimientos` usa las claves del JSON de ejemplo; `cuentas` añade 
 
 "Saldo Inicial" de cada fila es el saldo de la cuenta justo antes de ese movimiento.
 
+## Mensajería asíncrona
+
+cliente-service publica un evento por cada alta, cambio o baja de un cliente; cuenta-service lo consume para
+mantener su proyección local de clientes (`cliente_proyeccion`). Es la única comunicación entre los servicios.
+
+```mermaid
+sequenceDiagram
+    participant CS as cliente-service
+    participant OB as outbox_message (cliente_db)
+    participant K as Kafka · clientes.cliente.events
+    participant QS as cuenta-service
+    participant P as cliente_proyeccion (cuenta_db)
+    CS->>OB: INSERT en la misma transacción que el cliente
+    OB-->>K: dispatcher: publica con key = clienteId
+    K->>QS: consumer group cuenta-service
+    QS->>P: upsert idempotente por versión
+    QS-->>K: ack manual tras el commit
+```
+
+### Topics
+
+| Topic | Particiones | Clave | Productor | Consumidor | Contenido |
+|-------|------------|-------|-----------|------------|-----------|
+| `clientes.cliente.events` | 3 | `clienteId` | cliente-service (outbox) | cuenta-service, grupo `cuenta-service` | `ClienteCreado`, `ClienteActualizado`, `ClienteEliminado` |
+| `clientes.cliente.events.dlt` | 3 | la del mensaje original | cuenta-service (error handler) | ninguno: inspección manual | Mensajes que no se pudieron procesar |
+
+- **Creación:** los crea el job `kafka-init` de docker compose; los servicios nunca crean topics
+  (`auto.create.topics.enable=false`). Factor de replicación 1 en local.
+- **Orden:** la clave `clienteId` envía todos los eventos de un cliente a la misma partición, así se aplican
+  en orden. Las 3 particiones permiten hasta 3 instancias de cuenta-service en paralelo.
+- **Retención:** la del broker por defecto (7 días). Un consumidor nuevo lee desde el principio
+  (`auto-offset-reset: earliest`) y reconstruye la proyección con lo que siga retenido; en producción se usaría
+  `cleanup.policy=compact` para conservar siempre el último evento de cada cliente.
+- **DLT:** recibe los mensajes inválidos y los rechazos de negocio sin reintentar, y los errores transitorios
+  después de 3 reintentos (1 s, 2 s, 4 s). Conserva la partición del original y Spring agrega los headers
+  `kafka_dlt-exception-*` con la causa.
+
+### Contrato del mensaje
+
+**Headers**
+
+| Header | Ejemplo | Uso |
+|--------|---------|-----|
+| `outbox-message-id` | `52df04ac-cb56-479b-b417-e79c56f81e15` | Id único del mensaje (UUID). El consumidor lo usa para descartar duplicados; sin él, el mensaje va a la DLT |
+| `traceparent` | `00-e1555e74b1022568f87c2eccf8ac4a4b-96595679be1c7504-01` | W3C Trace Context: la traza sigue de cliente-service a cuenta-service |
+| `content-type` | `application/json` | Formato del valor |
+
+**Valor** — un sobre (`EventMessage`) con `header` de metadatos y `body` con el evento. Mensaje real de
+`ClienteCreado`:
+
+```json
+{
+  "header": {
+    "traceId": "e1555e74b1022568f87c2eccf8ac4a4b",
+    "version": "1.0.0",
+    "schemaVersion": "1.0.0",
+    "origin": "cliente-service",
+    "timestamp": "2026-10-29T20:03:18.253001974Z",
+    "locale": null
+  },
+  "body": {
+    "aggregate": "84e44901-f46d-4474-bea2-8fae9985328d",
+    "eventName": "ClienteCreado",
+    "eventType": "EVENT",
+    "payload": {
+      "clienteId": "84e44901-f46d-4474-bea2-8fae9985328d",
+      "nombre": "Juan Osorio",
+      "estado": true,
+      "version": 0
+    }
+  }
+}
+```
+
+| Campo | Significado |
+|-------|-------------|
+| `header.version` | Versión del sobre (`1.0.0`) |
+| `header.schemaVersion` | Versión del `payload`; cambia solo ante un cambio incompatible |
+| `header.origin` | Servicio que publicó el evento |
+| `header.timestamp` | Momento en que se registró el evento (UTC) |
+| `header.traceId` | Traza de la petición que originó el evento |
+| `body.aggregate` | Id del agregado (`clienteId`), igual a la clave del mensaje |
+| `body.eventName` | Tipo de evento (tabla siguiente) |
+
+**Eventos**
+
+| `eventName` | Cuándo | `payload` | Efecto en cuenta-service |
+|-------------|--------|-----------|--------------------------|
+| `ClienteCreado` | `POST /clientes` | `{clienteId, nombre, estado, version}` | Crea el cliente en la proyección: ya se le pueden abrir cuentas |
+| `ClienteActualizado` | `PUT` o `PATCH /clientes/{id}` | `{clienteId, nombre, estado, version}` | Actualiza nombre y estado; con `estado: false` no se le abren cuentas nuevas |
+| `ClienteEliminado` | `DELETE /clientes/{id}` | `{clienteId, version}` | Marca el cliente como eliminado (*tombstone*): no se le abren cuentas y su historial se conserva para reportes |
+
+`version` crece en cada cambio del cliente. cuenta-service aplica un evento solo si su versión es mayor que la
+que ya tiene, así que los duplicados y los eventos atrasados no tienen efecto.
+
+**Compatibilidad.** El consumidor es un *tolerant reader*: lee solo `eventName`, `clienteId`, `nombre`,
+`estado` y `version`, ignora campos nuevos e ignora (con *ack*) los `eventName` que no conoce. El productor puede
+agregar campos sin coordinar despliegues; un cambio incompatible sube `schemaVersion`.
+
+**Ver los mensajes** con el stack levantado:
+
+```bash
+docker compose -f docker/docker-compose.yaml exec kafka /opt/kafka/bin/kafka-console-consumer.sh \
+  --bootstrap-server kafka:19092 --topic clientes.cliente.events --from-beginning \
+  --formatter-property print.key=true --formatter-property print.headers=true --timeout-ms 5000
+```
+
 ## Entregables
 
 | Entregable | Dónde |
@@ -443,6 +550,69 @@ Reportes tras `./gradlew build`: pruebas en `*/build/reports/tests/test/index.ht
 
 Cada servicio es un build Gradle independiente (con su propio wrapper); la raíz es un *composite build*
 que los orquesta.
+
+## Patrones aplicados
+
+**Arquitectura y distribución**
+
+| Patrón | Dónde |
+|--------|-------|
+| Arquitectura hexagonal (puertos y adaptadores) | Módulos `domain`, `application`, `infrastructure/*` y `bootstrap` de cada servicio ([ADR-0002](docs/adr/0002-arquitectura-hexagonal-multimodulo.md)) |
+| Base de datos por servicio | `cliente_db` y `cuenta_db`, con roles separados ([ADR-0003](docs/adr/0003-dos-servicios-base-de-datos-por-servicio.md)) |
+| Event-carried state transfer + proyección local (read model) | `cliente_proyeccion` en cuenta-service, alimentada por eventos |
+| Transactional outbox + polling publisher | `outbox_message` y `OutboxDispatchScheduler` ([ADR-0005](docs/adr/0005-transactional-outbox-propio.md)) |
+| Event envelope | `EventMessage` (header + body) |
+| Particionado por clave (orden por agregado) y competing consumers | Clave `clienteId`, 3 particiones, grupo `cuenta-service` |
+| Idempotent consumer | `consumer_processed_event` + versión del agregado ([ADR-0006](docs/adr/0006-consumidor-idempotente-y-dlt.md)) |
+| Tolerant reader | `ClienteEventMapper` |
+| Dead letter channel + retry con backoff exponencial | `KafkaConsumerErrorHandlingConfig` |
+| Idempotency key | `Idempotency-Key` en `POST /movimientos`, guardada en Valkey ([ADR-0009](docs/adr/0009-idempotency-key-en-valkey.md)) |
+| Circuit breaker + fail-closed | Resilience4j sobre Valkey (`ValkeyResilienceConfig`) |
+| Health check (liveness / readiness) y graceful shutdown | Actuator en puerto propio; `server.shutdown: graceful` |
+
+**Dominio (DDD)**
+
+| Patrón | Dónde |
+|--------|-------|
+| Aggregate | `Cliente`, `Cuenta` (con sus `Movimiento`) |
+| Value object | `Monto`, `NumeroCuenta`, `Identificacion`, `Telefono`, `ClienteId`, `RangoFechas`… |
+| Factory method | `Cliente.registrar`, `Cuenta.abrir`, `ClienteId.of` |
+| Herencia sellada | `Persona` (`sealed`) → `Cliente`; en JPA, `InheritanceType.JOINED` ([ADR-0013](docs/adr/0013-cliente-hereda-de-persona.md)) |
+| Excepciones de dominio | `SaldoNoDisponibleException` y demás, traducidas a HTTP en un solo lugar |
+
+**Diseño**
+
+| Patrón | Dónde |
+|--------|-------|
+| Repository | Puertos `*RepositoryPort` y adaptadores JPA |
+| Adapter | Cada módulo de `infrastructure` implementa un puerto |
+| Command | `CreateClienteCommand`, `RegisterMovimientoCommand`… como entrada de los casos de uso |
+| Decorator | `*MetricsAdapter` y `IdempotentRegisterMovimientoUseCase` envuelven el puerto que decoran |
+| Chain of responsibility | `Chains.build` arma la cadena de decoradores ([ADR-0014](docs/adr/0014-metricas-como-decoradores.md)) |
+| Builder | `Cliente`, `Cuenta`, `PatchClienteCommand`; builder por etapas en `OutboxEvent` |
+| Factory | `OutboxEventFactory`, `ProblemDetailFactory` |
+| Data mapper | `*RestMapper`, `*EntityMapper`: el dominio no conoce JSON ni JPA |
+| Specification | `MovimientoSpecifications` para filtrar movimientos por cuenta y fecha |
+| Unit of work | `TransactionPort` ([ADR-0007](docs/adr/0007-transaccion-como-puerto.md)) |
+| Bloqueo pesimista y optimista | `SELECT … FOR UPDATE` en movimientos; `@Version` en ediciones ([ADR-0008](docs/adr/0008-bloqueo-pesimista-en-movimientos.md)) |
+
+**API**
+
+| Patrón | Dónde |
+|--------|-------|
+| Contract-first | Contratos OpenAPI que generan las interfaces de los controladores ([ADR-0015](docs/adr/0015-contrato-openapi-primero.md)) |
+| Problem Details (RFC 9457) | Todos los errores, con `code` estable ([ADR-0010](docs/adr/0010-errores-rfc-9457.md)) |
+| JSON Merge Patch (RFC 7396) | `PATCH /clientes/{id}` y `PATCH /cuentas/{id}` |
+| Paginación por offset con sobre | `{items, page}` en todos los listados |
+
+**Pruebas**
+
+| Patrón | Dónde |
+|--------|-------|
+| Fakes en lugar de mocks | Repositorios en memoria y transacciones falsas en las pruebas de casos de uso |
+| Test data builder | `ClienteTestData` y similares |
+| Pirámide de pruebas | Unitarias → Testcontainers → Karate → E2E contra compose |
+| Architecture tests | ArchUnit en cada `bootstrap` |
 
 ## Decisiones principales
 
