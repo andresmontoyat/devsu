@@ -180,7 +180,7 @@ el reporte de cobertura en cada PR.
 ├── e2e-tests/                # suite Karate contra docker compose
 ├── docker/                   # docker-compose.yaml, init de PostgreSQL, .env.example
 ├── postman/                  # colección y entorno
-├── docs/arquitectura.md
+├── docs/                     # arquitectura.md y adr/ (decisiones)
 └── BaseDatos.sql
 ```
 
@@ -188,6 +188,9 @@ Cada servicio es un build Gradle independiente (con su propio wrapper); la raíz
 que los orquesta.
 
 ## Decisiones principales
+
+Cada decisión tiene su ADR, con alternativas, consecuencias y la prueba que la verifica, en
+**[docs/adr/](docs/adr/README.md)**.
 
 - **Comunicación asíncrona con transactional outbox** en vez de publicar directo a Kafka: el evento se
   confirma en la misma transacción que el cambio, así no hay eventos perdidos ni fantasma.

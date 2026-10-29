@@ -1,7 +1,8 @@
 # Arquitectura
 
 Dos microservicios con arquitectura hexagonal (puertos y adaptadores), cada uno dueño de su base de
-datos, comunicados de forma asíncrona por Kafka mediante un *transactional outbox*.
+datos, comunicados de forma asíncrona por Kafka mediante un *transactional outbox*. Las razones de cada
+elección están en los [ADRs](adr/README.md).
 
 | Servicio | Agregados | Puerto API | Puerto actuator | Base de datos |
 |----------|-----------|-----------|-----------------|---------------|
