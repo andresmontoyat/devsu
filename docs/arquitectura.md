@@ -16,14 +16,14 @@ flowchart LR
     usuario([Cliente HTTP<br/>Postman / Karate])
 
     subgraph cs[cliente-service]
-        capi[API REST /api/clientes]
+        capi[API REST /api/v1/clientes]
         cout[(outbox_message)]
         cdb[(cliente_db)]
         disp[Dispatcher del outbox]
     end
 
     subgraph qs[cuenta-service]
-        qapi[API REST<br/>/api/cuentas · /api/movimientos · /api/reportes]
+        qapi[API REST<br/>/api/v1/cuentas · /api/v1/movimientos · /api/v1/reportes]
         cons[Consumidor Kafka]
         qdb[(cuenta_db<br/>cuentas · movimientos · cliente_proyeccion)]
     end

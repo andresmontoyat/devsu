@@ -13,10 +13,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
   y todos los errores, publicado en `/api/v3/api-docs` con Swagger UI en `/api/swagger-ui.html`.
 - ADR-0015: contrato OpenAPI primero.
 - ADR-0016: rango de fechas con `fechaInicio` y `fechaFin`.
+- ADR-0017: versionado de la API en la ruta.
 - README: sección "Mensajería asíncrona" con los topics (particiones, clave, retención, DLT), el contrato
   de los mensajes (headers, sobre y eventos con su efecto) y cómo verlos; y sección "Patrones aplicados".
 
 ### Changed
+- **Incompatible:** la API se versiona en la ruta: todos los recursos pasan de `/api/{recurso}` a
+  `/api/v1/{recurso}`. Swagger UI, `/api/v3/api-docs` y el actuator no cambian. `info.version` de los contratos
+  pasa a `1.0.0` (versión de la API v1).
 - **Incompatible:** `GET /movimientos` filtra por fechas con `fechaInicio` y `fechaFin` (`yyyy-MM-dd`, van
   juntas) en lugar de `fecha`.
 - **Incompatible:** `GET /reportes` recibe el rango con `fechaInicio` y `fechaFin` (obligatorias) en lugar de

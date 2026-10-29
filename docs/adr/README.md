@@ -21,3 +21,4 @@ uno nuevo con `supersedes` y el anterior pasa a `superseded`.
 | [0014](0014-metricas-como-decoradores.md) | Métricas de casos de uso como decoradores encadenados | accepted |
 | [0015](0015-contrato-openapi-primero.md) | Contrato OpenAPI primero: interfaces y modelos generados, contrato publicado con Swagger UI | accepted |
 | [0016](0016-rango-de-fechas-con-fecha-inicio-y-fin.md) | Rango de fechas con fechaInicio y fechaFin en reportes y movimientos | accepted |
+| [0017](0017-versionado-de-la-api-en-la-ruta.md) | Versionado de la API en la ruta: /api/v1 | proposed |

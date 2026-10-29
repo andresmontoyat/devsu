@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "d6f16ff7-0e6d-5ea0-987a-484a5bfb2090",
     "name": "devsu-bank",
-    "description": "Endpoints de cliente-service y cuenta-service: http://{servidor}:{puerto}/api/{recurso}. Ejecutar contra `docker compose -f docker/docker-compose.yaml up`.",
+    "description": "Endpoints de cliente-service y cuenta-service, versión 1 de la API: http://{servidor}:{puerto}/api/v1/{recurso}. Ejecutar contra `docker compose -f docker/docker-compose.yaml up`.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -534,7 +534,7 @@
                   "var c = pm.response.json();",
                   "pm.test(\"devuelve clienteId y Location, nunca la contrasena\", function () {",
                   "    pm.expect(c.clienteId).to.match(/^[0-9a-f-]{36}$/);",
-                  "    pm.expect(pm.response.headers.get(\"Location\")).to.include(\"/api/clientes/\" + c.clienteId);",
+                  "    pm.expect(pm.response.headers.get(\"Location\")).to.include(\"/api/v1/clientes/\" + c.clienteId);",
                   "    pm.expect(c).to.not.have.property(\"contrasena\");",
                   "});",
                   "pm.collectionVariables.set(\"clienteId\", c.clienteId);"
@@ -1628,11 +1628,11 @@
   "variable": [
     {
       "key": "clienteUrl",
-      "value": "http://localhost:8081/api"
+      "value": "http://localhost:8081/api/v1"
     },
     {
       "key": "cuentaUrl",
-      "value": "http://localhost:8082/api"
+      "value": "http://localhost:8082/api/v1"
     },
     {
       "key": "joseId",
