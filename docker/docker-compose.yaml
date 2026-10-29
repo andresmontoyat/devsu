@@ -1,0 +1,153 @@
+name: devsu-bank
+
+# Local stack: both services plus their infrastructure.
+#   docker compose -f docker/docker-compose.yaml up -d --build
+# Passwords below are local-development defaults; override them in docker/.env (see .env.example).
+
+x-service-defaults: &service-defaults
+  restart: on-failure
+  mem_limit: 768m
+  stop_grace_period: 30s
+
+x-service-env: &service-env
+  SPRING_PROFILES_ACTIVE: docker
+  SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:19092
+  SPRING_LIQUIBASE_CONTEXTS: ${LIQUIBASE_CONTEXTS:-demo}
+  MANAGEMENT_OPENTELEMETRY_TRACING_EXPORT_OTLP_ENDPOINT: http://otel-lgtm:4318/v1/traces
+  MANAGEMENT_OTLP_METRICS_EXPORT_URL: http://otel-lgtm:4318/v1/metrics
+  LOGGING_STRUCTURED_FORMAT_CONSOLE: ${LOGGING_STRUCTURED_FORMAT_CONSOLE:-}
+
+services:
+  postgres:
+    image: postgres:17.11-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      CLIENTE_DB_OWNER_PASSWORD: ${CLIENTE_DB_OWNER_PASSWORD:-cliente_owner}
+      CLIENTE_DB_APP_PASSWORD: ${CLIENTE_DB_APP_PASSWORD:-cliente_app}
+      CUENTA_DB_OWNER_PASSWORD: ${CUENTA_DB_OWNER_PASSWORD:-cuenta_owner}
+      CUENTA_DB_APP_PASSWORD: ${CUENTA_DB_APP_PASSWORD:-cuenta_app}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - ./postgres/01-create-databases.sh:/docker-entrypoint-initdb.d/01-create-databases.sh:ro
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      # Probes the last database the init script creates, so "healthy" means both exist.
+      test: ["CMD-SHELL", "pg_isready -U postgres -d cuenta_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  kafka:
+    image: apache/kafka:4.3.2
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      # INTERNAL serves the containers; EXTERNAL lets tools on the host reach the broker.
+      KAFKA_LISTENERS: INTERNAL://:19092,EXTERNAL://:9092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:19092,EXTERNAL://localhost:${KAFKA_PORT:-9092}
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      # Topics are infrastructure: kafka-init declares them, the services never create them.
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+    ports:
+      - "${KAFKA_PORT:-9092}:9092"
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server kafka:19092 > /dev/null 2>&1"]
+      interval: 10s
+      timeout: 10s
+      start_period: 20s
+      retries: 12
+
+  kafka-init:
+    image: apache/kafka:4.3.2
+    depends_on:
+      kafka:
+        condition: service_healthy
+    # Partitions are keyed by clienteId, so 3 partitions allow 3 consumers while keeping per-client order.
+    # The DLT has the same partition count: the recoverer keeps the failed record's partition.
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        set -e
+        for topic in clientes.cliente.events clientes.cliente.events.dlt; do
+          /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:19092 --create --if-not-exists \
+            --topic "$$topic" --partitions 3 --replication-factor 1
+        done
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:19092 --describe --topic clientes.cliente.events
+    restart: "no"
+
+  valkey:
+    image: valkey/valkey:9.0.7-alpine
+    ports:
+      - "${VALKEY_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  otel-lgtm:
+    # Grafana + Loki + Tempo + Prometheus behind one OTLP endpoint; local only.
+    image: grafana/otel-lgtm:0.38.0
+    ports:
+      - "${GRAFANA_PORT:-3000}:3000"
+
+  cliente-service:
+    <<: *service-defaults
+    build:
+      context: ../cliente-service
+    image: devsu-bank/cliente-service:1.0.0
+    environment:
+      <<: *service-env
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/cliente_db
+      SPRING_DATASOURCE_USERNAME: cliente_app
+      SPRING_DATASOURCE_PASSWORD: ${CLIENTE_DB_APP_PASSWORD:-cliente_app}
+      SPRING_LIQUIBASE_USER: cliente_owner
+      SPRING_LIQUIBASE_PASSWORD: ${CLIENTE_DB_OWNER_PASSWORD:-cliente_owner}
+    # Only the API is published; the actuator port (9081) stays inside the compose network.
+    ports:
+      - "${CLIENTE_SERVICE_PORT:-8081}:8081"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+      otel-lgtm:
+        condition: service_started
+
+  cuenta-service:
+    <<: *service-defaults
+    build:
+      context: ../cuenta-service
+    image: devsu-bank/cuenta-service:1.0.0
+    environment:
+      <<: *service-env
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/cuenta_db
+      SPRING_DATASOURCE_USERNAME: cuenta_app
+      SPRING_DATASOURCE_PASSWORD: ${CUENTA_DB_APP_PASSWORD:-cuenta_app}
+      SPRING_LIQUIBASE_USER: cuenta_owner
+      SPRING_LIQUIBASE_PASSWORD: ${CUENTA_DB_OWNER_PASSWORD:-cuenta_owner}
+      SPRING_DATA_REDIS_HOST: valkey
+    ports:
+      - "${CUENTA_SERVICE_PORT:-8082}:8082"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+      valkey:
+        condition: service_healthy
+      otel-lgtm:
+        condition: service_started
+
+volumes:
+  postgres-data:

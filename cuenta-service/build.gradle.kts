@@ -56,11 +56,35 @@ subprojects {
         testLogging { events("passed", "skipped", "failed") }
     }
 
+    val jacocoExclusions = listOf("**/config/**", "**/*Application*")
+    // Domain and use cases carry the business rules: they get the stricter gate (gradle.md §4.3).
+    val minimumLineCoverage = if (name in setOf("domain", "application")) "0.90" else "0.80"
+
     tasks.named<JacocoReport>("jacocoTestReport") {
+        classDirectories.setFrom(files(classDirectories.files.map { fileTree(it) { exclude(jacocoExclusions) } }))
         reports {
             xml.required = true
             html.required = true
+            // CSV feeds the per-module coverage table of the CI summary.
+            csv.required = true
         }
+    }
+
+    tasks.named<JacocoCoverageVerification>("jacocoTestCoverageVerification") {
+        dependsOn(tasks.named("test"))
+        classDirectories.setFrom(files(classDirectories.files.map { fileTree(it) { exclude(jacocoExclusions) } }))
+        violationRules {
+            rule {
+                limit {
+                    counter = "LINE"
+                    minimum = minimumLineCoverage.toBigDecimal()
+                }
+            }
+        }
+    }
+
+    tasks.named("check") {
+        dependsOn(tasks.named("jacocoTestCoverageVerification"))
     }
 
     configure<SpotlessExtension> {
@@ -79,6 +103,6 @@ project(":bootstrap") {
 }
 
 // Lets the repository root drive the whole service through one task path (composite build).
-listOf("build", "clean", "test", "spotlessApply", "spotlessCheck").forEach { taskName ->
+listOf("assemble", "build", "clean", "test", "spotlessApply", "spotlessCheck").forEach { taskName ->
     tasks.named(taskName) { dependsOn(subprojects.map { "${it.path}:$taskName" }) }
 }

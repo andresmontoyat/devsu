@@ -30,6 +30,15 @@ spring:
     contexts: ${SPRING_LIQUIBASE_CONTEXTS:demo}
   kafka:
     bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      # The outbox marks a row PUBLISHED only after every in-sync replica has it.
+      acks: all
+      properties:
+        enable.idempotence: true
+        # Bounded waits: a broker outage must fail the publish (and schedule a retry), not hang the dispatcher.
+        max.block.ms: ${SPRING_KAFKA_PRODUCER_PROPERTIES_MAX_BLOCK_MS:5000}
+        request.timeout.ms: ${SPRING_KAFKA_PRODUCER_PROPERTIES_REQUEST_TIMEOUT_MS:5000}
+        delivery.timeout.ms: ${SPRING_KAFKA_PRODUCER_PROPERTIES_DELIVERY_TIMEOUT_MS:10000}
 
 server:
   port: ${SERVER_PORT:8081}
@@ -37,6 +46,8 @@ server:
     # The exercise fixes the public contract as http://{host}:{port}/api/{resource}.
     context-path: ${SERVER_SERVLET_CONTEXT_PATH:/api}
   shutdown: graceful
+  error:
+    include-stacktrace: never
 
 management:
   # Actuator lives on its own port so it is never published next to the API.
@@ -94,3 +105,19 @@ logging:
       stacktrace:
         max-length: 4096
         include-hashes: true
+
+outbox:
+  enabled: ${OUTBOX_ENABLED:true}
+  batch-size: ${OUTBOX_BATCH_SIZE:50}
+  # Then FAILED, which blocks later events of the same client until requeued.
+  max-attempts: ${OUTBOX_MAX_ATTEMPTS:5}
+  # Rows IN_FLIGHT longer than this are taken over from a crashed instance; keep it > batch-size x send-timeout.
+  claim-ttl: ${OUTBOX_CLAIM_TTL:5m}
+  backoff:
+    base-delay: ${OUTBOX_BACKOFF_BASE_DELAY:30s}
+    max-delay: ${OUTBOX_BACKOFF_MAX_DELAY:1h}
+  publisher:
+    send-timeout: ${OUTBOX_PUBLISHER_SEND_TIMEOUT:5s}
+  task:
+    # Safety-net poll; normal dispatch happens right after each commit.
+    fixed-delay: ${OUTBOX_TASK_FIXED_DELAY:5s}

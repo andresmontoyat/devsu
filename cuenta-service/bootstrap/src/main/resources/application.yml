@@ -30,6 +30,17 @@ spring:
     contexts: ${SPRING_LIQUIBASE_CONTEXTS:demo}
   kafka:
     bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      group-id: ${SPRING_KAFKA_CONSUMER_GROUP_ID:cuenta-service}
+      # A new consumer group replays the topic from the start, rebuilding the client projection.
+      auto-offset-reset: earliest
+    producer:
+      # Only used to publish poison messages to the dead-letter topic.
+      acks: all
+    listener:
+      # Offsets are committed only after the projection transaction committed.
+      ack-mode: manual
+      observation-enabled: true
   data:
     redis:
       # Valkey speaks the Redis protocol; Spring Data Redis + Lettuce connect unchanged.
@@ -37,6 +48,7 @@ spring:
       port: ${SPRING_DATA_REDIS_PORT:6379}
       # Idempotency checks sit on the request path: fail fast instead of holding the HTTP thread.
       timeout: ${SPRING_DATA_REDIS_TIMEOUT:200ms}
+      connect-timeout: ${SPRING_DATA_REDIS_CONNECT_TIMEOUT:500ms}
 
 server:
   port: ${SERVER_PORT:8082}
@@ -44,6 +56,8 @@ server:
     # The exercise fixes the public contract as http://{host}:{port}/api/{resource}.
     context-path: ${SERVER_SERVLET_CONTEXT_PATH:/api}
   shutdown: graceful
+  error:
+    include-stacktrace: never
 
 management:
   # Actuator lives on its own port so it is never published next to the API.
@@ -101,3 +115,20 @@ logging:
       stacktrace:
         max-length: 4096
         include-hashes: true
+
+cuenta:
+  reporte:
+    zona: ${CUENTA_REPORTE_ZONA:America/Guayaquil}
+  idempotency:
+    key-prefix: ${CUENTA_IDEMPOTENCY_KEY_PREFIX:idem:movimiento:}
+    # A retried request within this window replays the original movement instead of a new debit.
+    ttl: ${CUENTA_IDEMPOTENCY_TTL:24h}
+    # A reservation left by a crashed request frees the key after this long.
+    in-progress-ttl: ${CUENTA_IDEMPOTENCY_IN_PROGRESS_TTL:1m}
+  consumer:
+    topic: ${CUENTA_CONSUMER_TOPIC:clientes.cliente.events}
+    retry:
+      initial-interval: ${CUENTA_CONSUMER_RETRY_INITIAL_INTERVAL:1s}
+      multiplier: ${CUENTA_CONSUMER_RETRY_MULTIPLIER:2.0}
+      # Then the record goes to <topic>.dlt and the partition moves on.
+      max-retries: ${CUENTA_CONSUMER_RETRY_MAX_RETRIES:3}

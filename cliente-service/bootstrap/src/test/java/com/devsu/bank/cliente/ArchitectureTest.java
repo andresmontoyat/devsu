@@ -102,4 +102,30 @@ class ArchitectureTest {
           .resideInAnyPackage("org.springframework.kafka..", "org.apache.kafka..")
           .because(
               "Use cases publish through the outbox; broker SDKs belong to the dispatcher adapter");
+
+  // Outbox-first (messaging.md §4.3): use cases write events only through OutboxWriter.
+  @ArchTest
+  static final ArchRule useCasesShouldNotInjectDispatcherPorts =
+      noClasses()
+          .that()
+          .resideInAPackage("..usecase..")
+          .should()
+          .dependOnClassesThat()
+          .haveSimpleName("MessagePublisherPort")
+          .orShould()
+          .dependOnClassesThat()
+          .haveSimpleName("OutboxDispatchStore")
+          .orShould()
+          .dependOnClassesThat()
+          .haveSimpleName("SendOutboxMessagesPort")
+          .because("Publishing belongs to the outbox dispatcher, never to a business use case");
+
+  @ArchTest
+  static final ArchRule noDomainPublisherPorts =
+      noClasses()
+          .should()
+          .haveSimpleNameEndingWith("PublisherPort")
+          .andShould()
+          .notHaveSimpleName("MessagePublisherPort")
+          .because("Per-entity publisher ports invite dual writes; use OutboxWriter instead");
 }
