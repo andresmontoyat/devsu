@@ -302,7 +302,7 @@ Contrato: `http://{servidor}:{puerto}/api/{recurso}`. Errores en formato
 | `GET` `PUT` `PATCH` | `/cuentas/{numeroCuenta}` | Obtener · reemplazar · modificar |
 | `POST` `GET` | `/movimientos` | Registrar (header opcional `Idempotency-Key`) · listar (`?cuenta=&fechaInicio=&fechaFin=`) |
 | `GET` `PUT` | `/movimientos/{movimientoId}` | Obtener · corregir el último movimiento de la cuenta |
-| `GET` | `/reportes?fechaInicio={yyyy-MM-dd}&fechaFin={yyyy-MM-dd}&cliente={clienteId}` | Estado de cuenta (F4). La forma del enunciado `fecha={inicio},{fin}` sigue aceptada (deprecada) |
+| `GET` | `/reportes?fechaInicio={yyyy-MM-dd}&fechaFin={yyyy-MM-dd}&cliente={clienteId}` | Estado de cuenta (F4); las dos fechas son obligatorias |
 
 Cuentas y movimientos no se eliminan (CRU, como pide el enunciado): una cuenta se desactiva con
 `PATCH {"estado": false}` y un movimiento erróneo se corrige, de modo que el historial sigue siendo auditable.
@@ -604,7 +604,6 @@ que los orquesta.
 | Problem Details (RFC 9457) | Todos los errores, con `code` estable ([ADR-0010](docs/adr/0010-errores-rfc-9457.md)) |
 | JSON Merge Patch (RFC 7396) | `PATCH /clientes/{id}` y `PATCH /cuentas/{id}` |
 | Paginación por offset con sobre | `{items, page}` en todos los listados |
-| Parámetro deprecado con alias | `fecha` en `/reportes` sigue aceptada junto a `fechaInicio`/`fechaFin` ([ADR-0016](docs/adr/0016-rango-de-fechas-con-fecha-inicio-y-fin.md)) |
 
 **Pruebas**
 

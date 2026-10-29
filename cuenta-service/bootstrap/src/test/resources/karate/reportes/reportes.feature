@@ -57,11 +57,3 @@ Feature: /reportes — estado de cuenta por rango de fechas y cliente (F4)
     When method get
     Then status 404
     And match response.code == 'CLIENTE_NO_ENCONTRADO'
-
-  Scenario: la forma del enunciado fecha=inicio,fin sigue aceptada (deprecada)
-    Given path 'reportes'
-    And param fecha = hoy + ',' + hoy
-    And param cliente = juan
-    When method get
-    Then status 200
-    And match response.cliente.nombre == 'Juan Osorio'

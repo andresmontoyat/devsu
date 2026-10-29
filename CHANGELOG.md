@@ -19,8 +19,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 ### Changed
 - **Incompatible:** `GET /movimientos` filtra por fechas con `fechaInicio` y `fechaFin` (`yyyy-MM-dd`, van
   juntas) en lugar de `fecha`.
-- `GET /reportes` recibe el rango con `fechaInicio` y `fechaFin`; `fecha=inicio,fin` (la forma del enunciado)
-  sigue aceptada y queda marcada como deprecada. ADR-0016 reemplaza a ADR-0011.
+- **Incompatible:** `GET /reportes` recibe el rango con `fechaInicio` y `fechaFin` (obligatorias) en lugar de
+  `fecha=inicio,fin`. ADR-0016 reemplaza a ADR-0011.
 - La capa REST se genera desde el contrato con `openapi-generator` 7.22: los controladores implementan las
   interfaces generadas y los DTOs escritos a mano se eliminaron. La API no cambia de comportamiento.
 - README: sección "Despliegue con Docker" completa: requisitos, obtención del código, configuración,

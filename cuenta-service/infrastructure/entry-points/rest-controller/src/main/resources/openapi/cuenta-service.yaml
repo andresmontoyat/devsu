@@ -173,19 +173,17 @@ paths:
         - name: fechaInicio
           in: query
           description: |
-            Primer día del rango (`yyyy-MM-dd`, inclusive). Se envía junto con `fechaFin`; el rango no puede
+            Primer día del rango, inclusive (`yyyy-MM-dd`). Se envía junto con `fechaFin`; el rango no puede
             superar 366 días. Los días se cuentan en la zona `America/Guayaquil`.
           schema:
             type: string
             format: date
-          example: '2022-02-01'
         - name: fechaFin
           in: query
-          description: Último día del rango (`yyyy-MM-dd`, inclusive). Se envía junto con `fechaInicio`.
+          description: Último día del rango, inclusive (`yyyy-MM-dd`). Se envía junto con `fechaInicio`.
           schema:
             type: string
             format: date
-          example: '2022-02-28'
         - $ref: '#/components/parameters/Page'
         - $ref: '#/components/parameters/Size'
       responses:
@@ -335,10 +333,6 @@ paths:
         Cuentas del cliente con sus saldos y totales del rango, y el detalle de movimientos con las claves
         del JSON de ejemplo del enunciado. "Saldo Inicial" de cada fila es el saldo antes de ese
         movimiento. Las fechas se interpretan en la zona `America/Guayaquil`.
-
-        El rango se envía con `fechaInicio` y `fechaFin`. Por compatibilidad con el enunciado
-        (`/reportes?fecha=rango fechas & cliente`) también se acepta `fecha=inicio,fin`, pero no ambas
-        formas a la vez.
       parameters:
         - name: cliente
           in: query
@@ -349,27 +343,18 @@ paths:
           example: 0b6f5c9e-1d2a-4c3b-8e7f-1a2b3c4d5e02
         - name: fechaInicio
           in: query
-          description: Primer día del rango (`yyyy-MM-dd`, inclusive). Obligatoria junto con `fechaFin`.
+          required: true
+          description: Primer día del rango, inclusive (`yyyy-MM-dd`; p. ej. la fecha de hoy).
           schema:
             type: string
             format: date
-          example: '2022-02-01'
         - name: fechaFin
           in: query
-          description: Último día del rango (`yyyy-MM-dd`, inclusive); máximo 366 días desde `fechaInicio`.
+          required: true
+          description: Último día del rango, inclusive (`yyyy-MM-dd`); máximo 366 días desde `fechaInicio`.
           schema:
             type: string
             format: date
-          example: '2022-02-28'
-        - name: fecha
-          in: query
-          deprecated: true
-          description: |
-            Forma del enunciado: un día `yyyy-MM-dd` o un rango `inicio,fin`. Usar `fechaInicio` y
-            `fechaFin`.
-          schema:
-            type: string
-          example: 2022-02-01,2022-02-28
       responses:
         '200':
           description: Estado de cuenta.

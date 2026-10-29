@@ -66,35 +66,24 @@ class ReporteControllerTest {
   }
 
   @Test
-  void should_still_accept_the_deprecated_fecha_range_of_the_exercise() throws Exception {
-    given(generateEstadoCuenta.execute(new EstadoCuentaQuery(MARIANELA, FEBRERO)))
-        .willReturn(estadoDeMarianela());
-
-    mvc.perform(get("/reportes").param("fecha", "2022-02-01,2022-02-28").param("cliente", CLIENTE))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.fechaFin").value("2022-02-28"));
-  }
-
-  @Test
-  void should_require_the_client_and_a_complete_date_range() throws Exception {
+  void should_require_the_client_and_both_dates() throws Exception {
     mvc.perform(get("/reportes").param("fechaInicio", "2022-02-01").param("fechaFin", "2022-02-28"))
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.code").value("PARAMETRO_INVALIDO"));
-    mvc.perform(get("/reportes").param("cliente", CLIENTE))
-        .andExpect(status().isBadRequest())
-        .andExpect(jsonPath("$.code").value("RANGO_FECHAS_INVALIDO"));
     mvc.perform(get("/reportes").param("fechaInicio", "2022-02-01").param("cliente", CLIENTE))
         .andExpect(status().isBadRequest())
-        .andExpect(jsonPath("$.code").value("RANGO_FECHAS_INVALIDO"));
+        .andExpect(jsonPath("$.code").value("PARAMETRO_INVALIDO"));
+    mvc.perform(get("/reportes").param("fecha", "2022-02-01,2022-02-28").param("cliente", CLIENTE))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").value("PARAMETRO_INVALIDO"));
   }
 
   @Test
-  void should_reject_mixing_the_range_with_the_deprecated_fecha() throws Exception {
+  void should_reject_an_inverted_date_range() throws Exception {
     mvc.perform(
             get("/reportes")
-                .param("fecha", "2022-02-01")
-                .param("fechaInicio", "2022-02-01")
-                .param("fechaFin", "2022-02-28")
+                .param("fechaInicio", "2022-02-28")
+                .param("fechaFin", "2022-02-01")
                 .param("cliente", CLIENTE))
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.code").value("RANGO_FECHAS_INVALIDO"));
@@ -109,9 +98,6 @@ class ReporteControllerTest {
                 .param("cliente", CLIENTE))
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.code").value("PARAMETRO_INVALIDO"));
-    mvc.perform(get("/reportes").param("fecha", "10/2/2022").param("cliente", CLIENTE))
-        .andExpect(status().isBadRequest())
-        .andExpect(jsonPath("$.code").value("RANGO_FECHAS_INVALIDO"));
   }
 
   @Test
