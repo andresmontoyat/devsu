@@ -3,21 +3,45 @@
 Prueba técnica Devsu (Java): dos microservicios bancarios — **clientes** y **cuentas/movimientos** —
 comunicados de forma asíncrona, desplegables con Docker.
 
-**Repositorio:** https://github.com/andresmontoyat/devsu
+**Repositorio:** https://github.com/andresmontoyat/devsu · **Versión:** 2.0.0 (API v1) ·
+[CHANGELOG](CHANGELOG.md)
 
 **Stack:** Java 21 · Spring Boot 4.1 · JPA (Hibernate 7) · PostgreSQL 17 · Liquibase · Kafka 4 (KRaft) ·
-Valkey 9 · Micrometer + OpenTelemetry · Testcontainers · Karate · ArchUnit · Gradle 9.
+Valkey 9 · OpenAPI 3 (openapi-generator + springdoc) · Micrometer + OpenTelemetry · Testcontainers · Karate ·
+ArchUnit · Gradle 9.
+
+### Inicio rápido
+
+```bash
+git clone https://github.com/andresmontoyat/devsu.git && cd devsu
+docker compose -f docker/docker-compose.yaml up -d --build --wait
+curl -s http://localhost:8081/api/v1/clientes
+```
+
+| | cliente-service | cuenta-service |
+|-|-----------------|----------------|
+| API v1 | http://localhost:8081/api/v1/clientes | http://localhost:8082/api/v1/cuentas · `/movimientos` · `/reportes` |
+| Swagger UI | http://localhost:8081/api/swagger-ui.html | http://localhost:8082/api/swagger-ui.html |
+| Contrato OpenAPI | http://localhost:8081/api/v3/api-docs | http://localhost:8082/api/v3/api-docs |
+
+Postman: importar [`postman/`](postman) y ejecutar la carpeta *0. Casos de uso del enunciado*.
 
 ```mermaid
 flowchart LR
-    http([HTTP]) --> cs[cliente-service :8081]
+    http([HTTP /api/v1]) --> cs[cliente-service :8081]
     http --> qs[cuenta-service :8082]
     cs --> cdb[(cliente_db)]
-    cs -- outbox --> k{{Kafka}}
+    cs -- outbox --> k{{Kafka<br/>clientes.cliente.events}}
     k --> qs
     qs --> qdb[(cuenta_db)]
     qs --> v[(Valkey)]
 ```
+
+**Contenido:** [Despliegue con Docker](#despliegue-con-docker) ·
+[Cómo probar la aplicación](#cómo-probar-la-aplicación) · [API](#api) ·
+[Mensajería asíncrona](#mensajería-asíncrona) · [Entregables](#entregables) ·
+[Funcionalidades](#funcionalidades) · [Pruebas](#pruebas) · [Comandos](#comandos) · [Estructura](#estructura) ·
+[Patrones aplicados](#patrones-aplicados) · [Decisiones principales](#decisiones-principales)
 
 El diseño completo — capas hexagonales, outbox, consumo idempotente, registro de movimientos, modelo de
 datos y cómo se cubren rendimiento, escalabilidad y resiliencia — está en
@@ -460,7 +484,8 @@ docker compose -f docker/docker-compose.yaml exec kafka /opt/kafka/bin/kafka-con
 |------------|-------|
 | Script de base de datos | [`BaseDatos.sql`](BaseDatos.sql) — esquema y datos de ejemplo de ambas bases. Se **genera** desde los changelogs de Liquibase (`./gradlew generateBaseDatos`) y `BaseDatosSqlIT` falla si se desalinea. Carga manual: `psql -U postgres -f BaseDatos.sql` |
 | Contrato OpenAPI y Swagger UI | `*/infrastructure/entry-points/rest-controller/src/main/resources/openapi/*.yaml`; publicado en `/api/v3/api-docs` y `/api/swagger-ui.html` |
-| Colección Postman | [`postman/devsu-bank.postman_collection.json`](postman/devsu-bank.postman_collection.json) + [entorno](postman/devsu-bank.postman_environment.json) |
+| Colección Postman | [`postman/devsu-bank.postman_collection.json`](postman/devsu-bank.postman_collection.json) + [entorno](postman/devsu-bank.postman_environment.json) (`clienteUrl` y `cuentaUrl` apuntan a `/api/v1`) |
+| Registro de cambios y decisiones | [`CHANGELOG.md`](CHANGELOG.md) · [`docs/adr/`](docs/adr/README.md) (17 ADRs) · [`docs/arquitectura.md`](docs/arquitectura.md) |
 | Pruebas Karate | `*/bootstrap/src/test/resources/karate/**` — corren con todos los tests en `./gradlew build` |
 | Despliegue en contenedores | `cliente-service/Dockerfile`, `cuenta-service/Dockerfile`, [`docker/docker-compose.yaml`](docker/docker-compose.yaml) |
 
@@ -469,7 +494,9 @@ docker compose -f docker/docker-compose.yaml exec kafka /opt/kafka/bin/kafka-con
 Importar la colección y el entorno en Postman (v9.13+) y ejecutar la carpeta **0. Casos de uso del
 enunciado** sobre un stack recién levantado: consulta los datos de los casos 1 y 2, crea la cuenta 585545,
 registra los cuatro movimientos, comprueba "Saldo no disponible" y pide el estado de cuenta de Marianela.
-Las carpetas 1 a 4 recorren el CRUD de cada recurso con datos propios y se pueden repetir.
+Las carpetas 1 a 4 recorren el CRUD de cada recurso con datos propios y se pueden repetir. Las URLs
+usan `/api/v1` y el rango de fechas va en `fechaInicio` y `fechaFin`. Si cambiaste los puertos, ajustar
+`clienteUrl` / `cuentaUrl` en el entorno.
 
 Con Newman:
 
@@ -481,13 +508,13 @@ npx newman run postman/devsu-bank.postman_collection.json -e postman/devsu-bank.
 
 | | Requisito | Implementación |
 |-|-----------|----------------|
-| F1 | CRUD clientes; CRU cuentas y movimientos | `ClienteController`, `CuentaController`, `MovimientoController` |
+| F1 | CRUD clientes; CRU cuentas y movimientos | `ClienteController`, `CuentaController`, `MovimientoController`, que implementan las interfaces generadas del contrato OpenAPI |
 | F2 | Movimientos positivos/negativos, saldo actualizado, registro de transacciones | `Cuenta.aplicarMovimiento`; cada `movimiento` guarda saldo anterior y resultante |
 | F3 | "Saldo no disponible" | `SaldoNoDisponibleException` → `422` `SALDO_NO_DISPONIBLE` |
-| F4 | Reporte por rango de fechas y cliente | `GET /reportes` → `GenerateEstadoCuentaUseCase` |
+| F4 | Reporte por rango de fechas y cliente | `GET /api/v1/reportes?fechaInicio=&fechaFin=&cliente=` → `GenerateEstadoCuentaUseCase` |
 | F5 | Prueba unitaria de la entidad Cliente | [`ClienteTest`](cliente-service/domain/src/test/java/com/devsu/bank/cliente/domain/model/ClienteTest.java) |
 | F6 | Prueba de integración | `ClienteApiIT`, `MovimientoSaldoNoDisponibleIT`, `ClienteEventoIT`, ITs de adaptadores con Testcontainers |
-| F7 | Despliegue en contenedores | Dockerfiles multi-stage + docker compose |
+| F7 | Despliegue en contenedores | Dockerfiles multi-stage + docker compose, con Swagger UI publicado |
 
 ## Pruebas
 
@@ -503,12 +530,15 @@ Requisitos: JDK 21 y Docker (Testcontainers levanta PostgreSQL, Kafka y Valkey r
 | Dominio | JUnit 6 + AssertJ, sin mocks | Reglas de `Cliente`, `Cuenta`, `Movimiento`, value objects |
 | Casos de uso | JUnit con *fakes* de los puertos | Orquestación, transacción, outbox, idempotencia |
 | Adaptadores | Testcontainers (PostgreSQL, Kafka, Valkey) | JPA y Liquibase, outbox, consumidor, Idempotency-Key, concurrencia |
-| API | Karate (23 escenarios) + `@SpringBootTest` | Contrato HTTP de cada endpoint, errores `problem+json` |
+| API | Karate (24 escenarios) + `@SpringBootTest` | Contrato HTTP de cada endpoint bajo `/api/v1`, errores `problem+json` |
+| Contrato | `ClienteApiIT`, `OpenApiContractIT` + compilación | Los controladores implementan las interfaces generadas; el contrato publicado (`/api/v3/api-docs`) es el YAML fuente |
 | Arquitectura | ArchUnit | Dependencias entre capas, dominio sin framework |
-| E2E | Karate contra docker compose | Casos de uso 1–5 y propagación asíncrona entre servicios |
+| E2E | Karate contra docker compose (2 escenarios) | Casos de uso 1–5 y propagación asíncrona entre servicios |
+| Colección | Newman | 32 peticiones y 64 aserciones contra el stack |
 
 La cobertura de líneas se exige por módulo en el build: 90 % en `domain` y `application`, 80 % en el
-resto (`jacocoTestCoverageVerification`). Actualmente: cliente-service 97.5 %, cuenta-service 96.7 %.
+resto (`jacocoTestCoverageVerification`); el código generado desde OpenAPI queda fuera. En total son 396 pruebas
+JUnit; cobertura de líneas actual: cliente-service 97.8 %, cuenta-service 96.7 %.
 El CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) compila, ejecuta `./gradlew build` y publica
 el reporte de cobertura en cada PR.
 
@@ -537,19 +567,21 @@ Reportes tras `./gradlew build`: pruebas en `*/build/reports/tests/test/index.ht
 ├── cliente-service/          # Persona, Cliente — publica eventos por outbox
 │   ├── domain/  application/  bootstrap/
 │   └── infrastructure/
-│       ├── entry-points/      rest-controller · scheduler-task
+│       ├── entry-points/      rest-controller (+ openapi/cliente-service.yaml) · scheduler-task
 │       └── driven-adapters/   jpa-repository · kafka-producer · bcrypt-adapter · metrics-publisher
 ├── cuenta-service/           # Cuenta, Movimiento, reportes — consume eventos de clientes
 │   ├── domain/  application/  bootstrap/
 │   └── infrastructure/
-│       ├── entry-points/      rest-controller · cliente-consumer
+│       ├── entry-points/      rest-controller (+ openapi/cuenta-service.yaml) · cliente-consumer
 │       └── driven-adapters/   jpa-repository · redis-cache · metrics-publisher
 ├── database-script/          # genera y verifica BaseDatos.sql
 ├── e2e-tests/                # suite Karate contra docker compose
 ├── docker/                   # docker-compose.yaml, init de PostgreSQL, .env.example
 ├── postman/                  # colección y entorno
-├── docs/                     # arquitectura.md y adr/ (decisiones)
-└── BaseDatos.sql
+├── docs/                     # arquitectura.md y adr/ (17 decisiones)
+├── .github/workflows/ci.yml  # build, test y reporte de cobertura
+├── BaseDatos.sql
+└── CHANGELOG.md
 ```
 
 Cada servicio es un build Gradle independiente (con su propio wrapper); la raíz es un *composite build*
@@ -634,5 +666,8 @@ Cada decisión tiene su ADR, con alternativas, consecuencias y la prueba que la 
 - **Base de datos por servicio**, con un rol de base para migraciones y otro, solo DML, para la aplicación.
 - **Contrato OpenAPI primero**: los controladores implementan interfaces generadas desde el YAML, y
   Swagger UI publica ese mismo archivo.
+- **Versión mayor en la ruta** (`/api/v1`): una versión incompatible futura convive como `/api/v2`.
+- **Rango de fechas tipado** (`fechaInicio`, `fechaFin` como `date`) en movimientos y reportes, en lugar de un
+  único texto `fecha=inicio,fin`.
 - **Liquibase como fuente de verdad del esquema**; `BaseDatos.sql` es un artefacto derivado y verificado.
 - **`Cliente` hereda de `Persona`** en el dominio (clase `sealed`) y en JPA (`InheritanceType.JOINED`).

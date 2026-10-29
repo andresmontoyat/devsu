@@ -1454,7 +1454,7 @@
     },
     {
       "name": "4. Reportes (F4)",
-      "description": "Rango con fechaInicio y fechaFin (yyyy-MM-dd). La forma del enunciado fecha=inicio,fin sigue aceptada (deprecada).",
+      "description": "Rango con fechaInicio y fechaFin (yyyy-MM-dd), obligatorios junto con cliente.",
       "item": [
         {
           "name": "Estado de cuenta por rango y cliente",
