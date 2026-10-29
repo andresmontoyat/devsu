@@ -7,6 +7,7 @@ import com.devsu.bank.cuenta.domain.reporte.RangoFechas;
 import com.devsu.bank.cuenta.infrastructure.entry.points.rest.controller.generated.api.ReportesApi;
 import com.devsu.bank.cuenta.infrastructure.entry.points.rest.controller.generated.model.EstadoCuentaResponse;
 import com.devsu.bank.cuenta.infrastructure.entry.points.rest.controller.mapper.EstadoCuentaRestMapper;
+import java.time.LocalDate;
 import java.time.ZoneId;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
@@ -27,9 +28,10 @@ public class ReporteController implements ReportesApi {
   }
 
   @Override
-  public ResponseEntity<EstadoCuentaResponse> generarEstadoCuenta(String fecha, String cliente) {
+  public ResponseEntity<EstadoCuentaResponse> generarEstadoCuenta(
+      String cliente, LocalDate fechaInicio, LocalDate fechaFin) {
     EstadoCuentaQuery query =
-        new EstadoCuentaQuery(ClienteId.of(cliente), RangoFechas.parse(fecha));
+        new EstadoCuentaQuery(ClienteId.of(cliente), new RangoFechas(fechaInicio, fechaFin));
     return ResponseEntity.ok(
         EstadoCuentaRestMapper.toResponse(generateEstadoCuenta.execute(query), zona));
   }

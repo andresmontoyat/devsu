@@ -11,7 +11,6 @@ import com.devsu.bank.cuenta.application.query.PaginaSolicitud;
 import com.devsu.bank.cuenta.domain.model.Movimiento;
 import com.devsu.bank.cuenta.domain.model.MovimientoId;
 import com.devsu.bank.cuenta.domain.model.NumeroCuenta;
-import com.devsu.bank.cuenta.domain.reporte.RangoFechas;
 import com.devsu.bank.cuenta.infrastructure.entry.points.rest.controller.generated.api.MovimientosApi;
 import com.devsu.bank.cuenta.infrastructure.entry.points.rest.controller.generated.model.MovimientoPage;
 import com.devsu.bank.cuenta.infrastructure.entry.points.rest.controller.generated.model.MovimientoRequest;
@@ -19,6 +18,7 @@ import com.devsu.bank.cuenta.infrastructure.entry.points.rest.controller.generat
 import com.devsu.bank.cuenta.infrastructure.entry.points.rest.controller.generated.model.MovimientoUpdateRequest;
 import com.devsu.bank.cuenta.infrastructure.entry.points.rest.controller.mapper.MovimientoRestMapper;
 import java.net.URI;
+import java.time.LocalDate;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
@@ -65,11 +65,11 @@ public class MovimientoController implements MovimientosApi {
 
   @Override
   public ResponseEntity<MovimientoPage> listarMovimientos(
-      String cuenta, String fecha, Integer page, Integer size) {
+      String cuenta, LocalDate fechaInicio, LocalDate fechaFin, Integer page, Integer size) {
     MovimientosQuery query =
         new MovimientosQuery(
             cuenta == null ? null : new NumeroCuenta(cuenta),
-            fecha == null ? null : RangoFechas.parse(fecha),
+            RangosDeFechas.opcional(fechaInicio, fechaFin),
             new PaginaSolicitud(page, size));
     return ResponseEntity.ok(MovimientoRestMapper.toPage(listMovimientos.execute(query)));
   }

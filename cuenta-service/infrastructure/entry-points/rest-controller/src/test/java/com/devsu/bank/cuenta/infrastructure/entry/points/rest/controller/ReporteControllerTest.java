@@ -42,7 +42,11 @@ class ReporteControllerTest {
     given(generateEstadoCuenta.execute(new EstadoCuentaQuery(MARIANELA, FEBRERO)))
         .willReturn(estadoDeMarianela());
 
-    mvc.perform(get("/reportes").param("fecha", "2022-02-01,2022-02-28").param("cliente", CLIENTE))
+    mvc.perform(
+            get("/reportes")
+                .param("fechaInicio", "2022-02-01")
+                .param("fechaFin", "2022-02-28")
+                .param("cliente", CLIENTE))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.cliente.clienteId").value(CLIENTE))
         .andExpect(jsonPath("$.cliente.nombre").value("Marianela Montalvo"))
@@ -62,13 +66,38 @@ class ReporteControllerTest {
   }
 
   @Test
-  void should_require_both_parameters_and_validate_them() throws Exception {
-    mvc.perform(get("/reportes").param("cliente", CLIENTE))
+  void should_require_the_client_and_both_dates() throws Exception {
+    mvc.perform(get("/reportes").param("fechaInicio", "2022-02-01").param("fechaFin", "2022-02-28"))
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.code").value("PARAMETRO_INVALIDO"));
-    mvc.perform(get("/reportes").param("fecha", "10/2/2022").param("cliente", CLIENTE))
+    mvc.perform(get("/reportes").param("fechaInicio", "2022-02-01").param("cliente", CLIENTE))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").value("PARAMETRO_INVALIDO"));
+    mvc.perform(get("/reportes").param("fecha", "2022-02-01,2022-02-28").param("cliente", CLIENTE))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").value("PARAMETRO_INVALIDO"));
+  }
+
+  @Test
+  void should_reject_an_inverted_date_range() throws Exception {
+    mvc.perform(
+            get("/reportes")
+                .param("fechaInicio", "2022-02-28")
+                .param("fechaFin", "2022-02-01")
+                .param("cliente", CLIENTE))
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.code").value("RANGO_FECHAS_INVALIDO"));
+  }
+
+  @Test
+  void should_reject_dates_that_are_not_iso_8601() throws Exception {
+    mvc.perform(
+            get("/reportes")
+                .param("fechaInicio", "10/2/2022")
+                .param("fechaFin", "2022-02-28")
+                .param("cliente", CLIENTE))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").value("PARAMETRO_INVALIDO"));
   }
 
   @Test
@@ -76,7 +105,11 @@ class ReporteControllerTest {
     given(generateEstadoCuenta.execute(any()))
         .willThrow(new ClienteNoEncontradoException(MARIANELA));
 
-    mvc.perform(get("/reportes").param("fecha", "2022-02-01").param("cliente", CLIENTE))
+    mvc.perform(
+            get("/reportes")
+                .param("fechaInicio", "2022-02-01")
+                .param("fechaFin", "2022-02-01")
+                .param("cliente", CLIENTE))
         .andExpect(status().isNotFound())
         .andExpect(jsonPath("$.code").value("CLIENTE_NO_ENCONTRADO"));
   }

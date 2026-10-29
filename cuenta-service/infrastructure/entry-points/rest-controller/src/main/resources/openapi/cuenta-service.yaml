@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: cuenta-service
-  version: 1.0.3
+  version: 2.0.0
   description: |
     Cuentas, movimientos y estado de cuenta (F1 a F4). Los clientes llegan desde cliente-service por
     Kafka a una proyección local: una cuenta solo se abre para un cliente conocido y activo.
@@ -170,12 +170,20 @@ paths:
           schema:
             type: string
           example: '225487'
-        - name: fecha
+        - name: fechaInicio
           in: query
-          description: Un día `yyyy-MM-dd` o un rango `inicio,fin` (máximo 366 días).
+          description: |
+            Primer día del rango, inclusive (`yyyy-MM-dd`). Se envía junto con `fechaFin`; el rango no puede
+            superar 366 días. Los días se cuentan en la zona `America/Guayaquil`.
           schema:
             type: string
-          example: 2022-02-01,2022-02-28
+            format: date
+        - name: fechaFin
+          in: query
+          description: Último día del rango, inclusive (`yyyy-MM-dd`). Se envía junto con `fechaInicio`.
+          schema:
+            type: string
+            format: date
         - $ref: '#/components/parameters/Page'
         - $ref: '#/components/parameters/Size'
       responses:
@@ -326,13 +334,6 @@ paths:
         del JSON de ejemplo del enunciado. "Saldo Inicial" de cada fila es el saldo antes de ese
         movimiento. Las fechas se interpretan en la zona `America/Guayaquil`.
       parameters:
-        - name: fecha
-          in: query
-          required: true
-          description: Un día `yyyy-MM-dd` o un rango `inicio,fin` (máximo 366 días).
-          schema:
-            type: string
-          example: 2022-02-01,2022-02-28
         - name: cliente
           in: query
           required: true
@@ -340,6 +341,20 @@ paths:
           schema:
             type: string
           example: 0b6f5c9e-1d2a-4c3b-8e7f-1a2b3c4d5e02
+        - name: fechaInicio
+          in: query
+          required: true
+          description: Primer día del rango, inclusive (`yyyy-MM-dd`; p. ej. la fecha de hoy).
+          schema:
+            type: string
+            format: date
+        - name: fechaFin
+          in: query
+          required: true
+          description: Último día del rango, inclusive (`yyyy-MM-dd`); máximo 366 días desde `fechaInicio`.
+          schema:
+            type: string
+            format: date
       responses:
         '200':
           description: Estado de cuenta.
