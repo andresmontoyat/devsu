@@ -80,7 +80,9 @@ curl -s http://localhost:8081/api/clientes; echo
 curl -s http://localhost:8082/api/cuentas/478758; echo
 ```
 
-La primera devuelve los tres clientes de ejemplo y la segunda la cuenta 478758 de Jose Lema.
+La primera devuelve los tres clientes de ejemplo y la segunda la cuenta 478758 de Jose Lema. La API también
+se puede explorar y probar desde Swagger UI: http://localhost:8081/api/swagger-ui.html y
+http://localhost:8082/api/swagger-ui.html.
 
 ### Servicios y puertos
 
@@ -88,6 +90,8 @@ La primera devuelve los tres clientes de ejemplo y la segunda la cuenta 478758 d
 |----------|--------------------------|--------------|
 | cliente-service | http://localhost:8081/api/clientes | — |
 | cuenta-service | http://localhost:8082/api/cuentas · `/api/movimientos` · `/api/reportes` | — |
+| Swagger UI | http://localhost:8081/api/swagger-ui.html · http://localhost:8082/api/swagger-ui.html | — |
+| Contrato OpenAPI | http://localhost:8081/api/v3/api-docs · http://localhost:8082/api/v3/api-docs | — |
 | Grafana (trazas en Tempo, métricas en Prometheus) | http://localhost:3000 | acceso anónimo |
 | PostgreSQL | `localhost:5432` — bases `cliente_db` y `cuenta_db` | `cliente_app` / `cliente_app`, `cuenta_app` / `cuenta_app` (solo DML) |
 | Kafka | `localhost:9092` — topic `clientes.cliente.events` (+ `.dlt`) | — |
@@ -261,6 +265,12 @@ Ejecuta con Karate los casos 1–5 y la propagación asíncrona de cambios y baj
 datos, así que se puede repetir sin reiniciar el stack. Si se cambiaron los puertos:
 `E2E_CLIENTE_URL=http://localhost:18081/api E2E_CUENTA_URL=http://localhost:18082/api ./gradlew e2eTest`.
 
+### 4. Swagger UI
+
+Cada servicio publica su contrato OpenAPI con Swagger UI: http://localhost:8081/api/swagger-ui.html
+(clientes) y http://localhost:8082/api/swagger-ui.html (cuentas, movimientos y reportes). Cada operación
+muestra sus ejemplos y todos sus errores, y se puede ejecutar con *Try it out*.
+
 ### Observabilidad
 
 Grafana en http://localhost:3000 → *Explore* → **Tempo** muestra cada petición como una traza que cruza ambos
@@ -273,6 +283,13 @@ docker compose -f docker/docker-compose.yaml exec cuenta-service wget -qO- http:
 ```
 
 ## API
+
+La API se define **primero en OpenAPI** y el código se genera desde ese contrato
+([ADR-0015](docs/adr/0015-contrato-openapi-primero.md)):
+[`cliente-service.yaml`](cliente-service/infrastructure/entry-points/rest-controller/src/main/resources/openapi/cliente-service.yaml)
+y
+[`cuenta-service.yaml`](cuenta-service/infrastructure/entry-points/rest-controller/src/main/resources/openapi/cuenta-service.yaml).
+Con el stack levantado se navega en Swagger UI (`/api/swagger-ui.html`) y se descarga en `/api/v3/api-docs`.
 
 Contrato: `http://{servidor}:{puerto}/api/{recurso}`. Errores en formato
 [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) (`application/problem+json`) con `code` estable y `traceId`.
@@ -331,6 +348,7 @@ Cada fila de `movimientos` usa las claves del JSON de ejemplo; `cuentas` añade 
 | Entregable | Dónde |
 |------------|-------|
 | Script de base de datos | [`BaseDatos.sql`](BaseDatos.sql) — esquema y datos de ejemplo de ambas bases. Se **genera** desde los changelogs de Liquibase (`./gradlew generateBaseDatos`) y `BaseDatosSqlIT` falla si se desalinea. Carga manual: `psql -U postgres -f BaseDatos.sql` |
+| Contrato OpenAPI y Swagger UI | `*/infrastructure/entry-points/rest-controller/src/main/resources/openapi/*.yaml`; publicado en `/api/v3/api-docs` y `/api/swagger-ui.html` |
 | Colección Postman | [`postman/devsu-bank.postman_collection.json`](postman/devsu-bank.postman_collection.json) + [entorno](postman/devsu-bank.postman_environment.json) |
 | Pruebas Karate | `*/bootstrap/src/test/resources/karate/**` — corren con todos los tests en `./gradlew build` |
 | Despliegue en contenedores | `cliente-service/Dockerfile`, `cuenta-service/Dockerfile`, [`docker/docker-compose.yaml`](docker/docker-compose.yaml) |
@@ -439,5 +457,7 @@ Cada decisión tiene su ADR, con alternativas, consecuencias y la prueba que la 
 - **Bloqueo pesimista por cuenta** al registrar movimientos y `Idempotency-Key` opcional en Valkey para que
   un reintento del cliente no duplique un débito.
 - **Base de datos por servicio**, con un rol de base para migraciones y otro, solo DML, para la aplicación.
+- **Contrato OpenAPI primero**: los controladores implementan interfaces generadas desde el YAML, y
+  Swagger UI publica ese mismo archivo.
 - **Liquibase como fuente de verdad del esquema**; `BaseDatos.sql` es un artefacto derivado y verificado.
 - **`Cliente` hereda de `Persona`** en el dominio (clase `sealed`) y en JPA (`InheritanceType.JOINED`).

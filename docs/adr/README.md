@@ -19,3 +19,4 @@ uno nuevo con `supersedes` y el anterior pasa a `superseded`.
 | [0012](0012-liquibase-fuente-de-verdad-y-basedatos-generado.md) | Liquibase como fuente de verdad del esquema; BaseDatos.sql generado | accepted |
 | [0013](0013-cliente-hereda-de-persona.md) | Cliente hereda de Persona: clase sellada en el dominio y JOINED en JPA | accepted |
 | [0014](0014-metricas-como-decoradores.md) | Métricas de casos de uso como decoradores encadenados | accepted |
+| [0015](0015-contrato-openapi-primero.md) | Contrato OpenAPI primero: interfaces y modelos generados, contrato publicado con Swagger UI | proposed |
