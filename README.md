@@ -3,6 +3,8 @@
 Prueba técnica Devsu (Java): dos microservicios bancarios — **clientes** y **cuentas/movimientos** —
 comunicados de forma asíncrona, desplegables con Docker.
 
+**Repositorio:** https://github.com/andresmontoyat/devsu
+
 **Stack:** Java 21 · Spring Boot 4.1 · JPA (Hibernate 7) · PostgreSQL 17 · Liquibase · Kafka 4 (KRaft) ·
 Valkey 9 · Micrometer + OpenTelemetry · Testcontainers · Karate · ArchUnit · Gradle 9.
 
@@ -76,8 +78,8 @@ docker compose -f docker/docker-compose.yaml ps -a
 Todos los servicios deben estar `Up (healthy)`, salvo `kafka-init`, que debe quedar `Exited (0)`. Prueba rápida:
 
 ```bash
-curl -s http://localhost:8081/api/clientes; echo
-curl -s http://localhost:8082/api/cuentas/478758; echo
+curl -s http://localhost:8081/api/v1/clientes; echo
+curl -s http://localhost:8082/api/v1/cuentas/478758; echo
 ```
 
 La primera devuelve los tres clientes de ejemplo y la segunda la cuenta 478758 de Jose Lema. La API también
@@ -88,8 +90,8 @@ http://localhost:8082/api/swagger-ui.html.
 
 | Servicio | URL / host en tu máquina | Credenciales |
 |----------|--------------------------|--------------|
-| cliente-service | http://localhost:8081/api/clientes | — |
-| cuenta-service | http://localhost:8082/api/cuentas · `/api/movimientos` · `/api/reportes` | — |
+| cliente-service | http://localhost:8081/api/v1/clientes | — |
+| cuenta-service | http://localhost:8082/api/v1/cuentas · `/api/v1/movimientos` · `/api/v1/reportes` | — |
 | Swagger UI | http://localhost:8081/api/swagger-ui.html · http://localhost:8082/api/swagger-ui.html | — |
 | Contrato OpenAPI | http://localhost:8081/api/v3/api-docs · http://localhost:8082/api/v3/api-docs | — |
 | Grafana (trazas en Tempo, métricas en Prometheus) | http://localhost:3000 | acceso anónimo |
@@ -162,8 +164,8 @@ sobre un stack recién levantado (`docker compose -f docker/docker-compose.yaml 
 `| jq` al final de cada comando formatea el JSON, si está instalado.
 
 ```bash
-CLIENTES=http://localhost:8081/api
-CUENTAS=http://localhost:8082/api
+CLIENTES=http://localhost:8081/api/v1
+CUENTAS=http://localhost:8082/api/v1
 JOSE=0b6f5c9e-1d2a-4c3b-8e7f-1a2b3c4d5e01        # ids fijos de los clientes de ejemplo
 MARIANELA=0b6f5c9e-1d2a-4c3b-8e7f-1a2b3c4d5e02
 HOY=$(TZ=America/Guayaquil date +%F)              # el reporte usa el día de Ecuador
@@ -179,7 +181,7 @@ curl -si -X POST "$CLIENTES/clientes" -H 'Content-Type: application/json' -d '{
   "direccion": "Av. Shyris", "telefono": "0991234567", "contrasena": "9876", "estado": true}'; echo
 ```
 
-La respuesta es `201` con un header `Location` que apunta a `/api/clientes/{clienteId}` y nunca incluye la contraseña.
+La respuesta es `201` con un header `Location` que apunta a `/api/v1/clientes/{clienteId}` y nunca incluye la contraseña.
 
 **Caso 2 — cuentas de Marianela Montalvo** (seed):
 
@@ -263,7 +265,7 @@ npx newman run postman/devsu-bank.postman_collection.json -e postman/devsu-bank.
 
 Ejecuta con Karate los casos 1–5 y la propagación asíncrona de cambios y bajas de clientes. Crea sus propios
 datos, así que se puede repetir sin reiniciar el stack. Si se cambiaron los puertos:
-`E2E_CLIENTE_URL=http://localhost:18081/api E2E_CUENTA_URL=http://localhost:18082/api ./gradlew e2eTest`.
+`E2E_CLIENTE_URL=http://localhost:18081/api/v1 E2E_CUENTA_URL=http://localhost:18082/api/v1 ./gradlew e2eTest`.
 
 ### 4. Swagger UI
 
@@ -291,7 +293,9 @@ y
 [`cuenta-service.yaml`](cuenta-service/infrastructure/entry-points/rest-controller/src/main/resources/openapi/cuenta-service.yaml).
 Con el stack levantado se navega en Swagger UI (`/api/swagger-ui.html`) y se descarga en `/api/v3/api-docs`.
 
-Contrato: `http://{servidor}:{puerto}/api/{recurso}`. Errores en formato
+Contrato: `http://{servidor}:{puerto}/api/v1/{recurso}`: la versión mayor va en la ruta
+([ADR-0017](docs/adr/0017-versionado-de-la-api-en-la-ruta.md)); un cambio incompatible publica `/api/v2` junto a
+`/api/v1`. Errores en formato
 [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) (`application/problem+json`) con `code` estable y `traceId`.
 
 | Método | Ruta | Descripción |
@@ -310,7 +314,7 @@ Cuentas y movimientos no se eliminan (CRU, como pide el enunciado): una cuenta s
 **Movimiento sin saldo (F3):**
 
 ```http
-POST /api/movimientos
+POST /api/v1/movimientos
 {"numeroCuenta": "496825", "valor": -100}
 
 HTTP/1.1 422
@@ -318,7 +322,7 @@ HTTP/1.1 422
  "status": 422, "detail": "Saldo no disponible", "code": "SALDO_NO_DISPONIBLE", "traceId": "..."}
 ```
 
-**Estado de cuenta (F4)** — `GET /api/reportes?fechaInicio=2026-10-29&fechaFin=2026-10-29&cliente=0b6f5c9e-1d2a-4c3b-8e7f-1a2b3c4d5e02`.
+**Estado de cuenta (F4)** — `GET /api/v1/reportes?fechaInicio=2026-10-29&fechaFin=2026-10-29&cliente=0b6f5c9e-1d2a-4c3b-8e7f-1a2b3c4d5e02`.
 Cada fila de `movimientos` usa las claves del JSON de ejemplo; `cuentas` añade los saldos y totales del rango:
 
 ```json
@@ -600,6 +604,7 @@ que los orquesta.
 
 | Patrón | Dónde |
 |--------|-------|
+| Versionado en la ruta | `/api/v1/...` con un prefijo en el adaptador REST ([ADR-0017](docs/adr/0017-versionado-de-la-api-en-la-ruta.md)) |
 | Contract-first | Contratos OpenAPI que generan las interfaces de los controladores ([ADR-0015](docs/adr/0015-contrato-openapi-primero.md)) |
 | Problem Details (RFC 9457) | Todos los errores, con `code` estable ([ADR-0010](docs/adr/0010-errores-rfc-9457.md)) |
 | JSON Merge Patch (RFC 7396) | `PATCH /clientes/{id}` y `PATCH /cuentas/{id}` |

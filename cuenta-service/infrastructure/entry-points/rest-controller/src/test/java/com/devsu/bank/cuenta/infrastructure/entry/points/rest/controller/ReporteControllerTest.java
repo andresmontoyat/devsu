@@ -43,7 +43,7 @@ class ReporteControllerTest {
         .willReturn(estadoDeMarianela());
 
     mvc.perform(
-            get("/reportes")
+            get("/v1/reportes")
                 .param("fechaInicio", "2022-02-01")
                 .param("fechaFin", "2022-02-28")
                 .param("cliente", CLIENTE))
@@ -67,13 +67,15 @@ class ReporteControllerTest {
 
   @Test
   void should_require_the_client_and_both_dates() throws Exception {
-    mvc.perform(get("/reportes").param("fechaInicio", "2022-02-01").param("fechaFin", "2022-02-28"))
+    mvc.perform(
+            get("/v1/reportes").param("fechaInicio", "2022-02-01").param("fechaFin", "2022-02-28"))
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.code").value("PARAMETRO_INVALIDO"));
-    mvc.perform(get("/reportes").param("fechaInicio", "2022-02-01").param("cliente", CLIENTE))
+    mvc.perform(get("/v1/reportes").param("fechaInicio", "2022-02-01").param("cliente", CLIENTE))
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.code").value("PARAMETRO_INVALIDO"));
-    mvc.perform(get("/reportes").param("fecha", "2022-02-01,2022-02-28").param("cliente", CLIENTE))
+    mvc.perform(
+            get("/v1/reportes").param("fecha", "2022-02-01,2022-02-28").param("cliente", CLIENTE))
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.code").value("PARAMETRO_INVALIDO"));
   }
@@ -81,7 +83,7 @@ class ReporteControllerTest {
   @Test
   void should_reject_an_inverted_date_range() throws Exception {
     mvc.perform(
-            get("/reportes")
+            get("/v1/reportes")
                 .param("fechaInicio", "2022-02-28")
                 .param("fechaFin", "2022-02-01")
                 .param("cliente", CLIENTE))
@@ -92,7 +94,7 @@ class ReporteControllerTest {
   @Test
   void should_reject_dates_that_are_not_iso_8601() throws Exception {
     mvc.perform(
-            get("/reportes")
+            get("/v1/reportes")
                 .param("fechaInicio", "10/2/2022")
                 .param("fechaFin", "2022-02-28")
                 .param("cliente", CLIENTE))
@@ -106,7 +108,7 @@ class ReporteControllerTest {
         .willThrow(new ClienteNoEncontradoException(MARIANELA));
 
     mvc.perform(
-            get("/reportes")
+            get("/v1/reportes")
                 .param("fechaInicio", "2022-02-01")
                 .param("fechaFin", "2022-02-01")
                 .param("cliente", CLIENTE))

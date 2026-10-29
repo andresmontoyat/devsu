@@ -20,6 +20,7 @@ class OpenApiContractIT extends AbstractIntegrationTest {
 
     assertThat(docs.path("openapi").asString()).isEqualTo("3.0.3");
     assertThat(docs.path("info").path("title").asString()).isEqualTo("cuenta-service");
+    assertThat(docs.at("/servers/0/url").asString()).isEqualTo("/api/v1");
     assertThat(docs.path("paths").size()).isEqualTo(5);
     assertThat(docs.path("paths").has("/reportes")).isTrue();
     assertThat(docs.at("/components/schemas/FilaEstadoCuenta/required").toString())

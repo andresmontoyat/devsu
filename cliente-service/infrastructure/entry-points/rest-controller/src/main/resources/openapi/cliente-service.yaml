@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: cliente-service
-  version: 2.0.0
+  version: 1.0.0
   description: |
     Clientes del banco (F1: CRUD). Cada alta, cambio o baja publica un evento en Kafka
     (`clientes.cliente.events`) mediante un transactional outbox; cuenta-service lo consume.
@@ -9,7 +9,8 @@ info:
     Contrato fuente: las interfaces y modelos del controlador se generan desde este archivo.
     Errores en formato RFC 9457 (`application/problem+json`) con `code` estable y `traceId`.
 servers:
-  - url: /api
+  - url: /api/v1
+    description: Versión 1 de la API (versionado en la ruta).
 tags:
   - name: Clientes
     description: Alta, consulta, modificación y baja de clientes.

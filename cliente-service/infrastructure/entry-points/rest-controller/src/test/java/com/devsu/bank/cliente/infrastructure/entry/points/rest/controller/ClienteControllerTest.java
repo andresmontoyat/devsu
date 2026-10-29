@@ -45,7 +45,7 @@ import org.springframework.test.web.servlet.MockMvc;
 class ClienteControllerTest {
 
   private static final ClienteId ID = ClienteId.of("0b6f5c9e-1d2a-4c3b-8e7f-1a2b3c4d5e01");
-  private static final String URL = "/clientes/" + ID.value();
+  private static final String URL = "/v1/clientes/" + ID.value();
   private static final MediaType MERGE_PATCH = MediaType.valueOf("application/merge-patch+json");
   private static final String CUERPO_CREAR =
       """
@@ -66,7 +66,7 @@ class ClienteControllerTest {
   void should_answer_201_with_location_and_no_password_when_creating() throws Exception {
     given(createCliente.execute(any())).willReturn(joseLema());
 
-    mvc.perform(post("/clientes").contentType(MediaType.APPLICATION_JSON).content(CUERPO_CREAR))
+    mvc.perform(post("/v1/clientes").contentType(MediaType.APPLICATION_JSON).content(CUERPO_CREAR))
         .andExpect(status().isCreated())
         .andExpect(header().string("Location", "http://localhost" + URL))
         .andExpect(jsonPath("$.clienteId").value(ID.value().toString()))
@@ -81,7 +81,7 @@ class ClienteControllerTest {
     ArgumentCaptor<CreateClienteCommand> command =
         ArgumentCaptor.forClass(CreateClienteCommand.class);
 
-    mvc.perform(post("/clientes").contentType(MediaType.APPLICATION_JSON).content(CUERPO_CREAR));
+    mvc.perform(post("/v1/clientes").contentType(MediaType.APPLICATION_JSON).content(CUERPO_CREAR));
 
     then(createCliente).should().execute(command.capture());
     org.assertj.core.api.Assertions.assertThat(command.getValue())
@@ -99,7 +99,7 @@ class ClienteControllerTest {
 
   @Test
   void should_answer_400_with_field_errors_when_the_body_is_incomplete() throws Exception {
-    mvc.perform(post("/clientes").contentType(MediaType.APPLICATION_JSON).content("{}"))
+    mvc.perform(post("/v1/clientes").contentType(MediaType.APPLICATION_JSON).content("{}"))
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.code").value("VALIDACION_FALLIDA"))
         .andExpect(jsonPath("$.errors[?(@.field == 'nombre')]").exists())
@@ -130,7 +130,7 @@ class ClienteControllerTest {
 
   @Test
   void should_answer_400_when_the_id_is_not_a_uuid() throws Exception {
-    mvc.perform(get("/clientes/no-es-uuid"))
+    mvc.perform(get("/v1/clientes/no-es-uuid"))
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.code").value("DATO_INVALIDO"));
   }
@@ -140,7 +140,7 @@ class ClienteControllerTest {
     given(listClientes.execute(new PaginaSolicitud(0, 2)))
         .willReturn(new Pagina<>(List.of(joseLema()), new PaginaSolicitud(0, 2), 3));
 
-    mvc.perform(get("/clientes").param("page", "0").param("size", "2"))
+    mvc.perform(get("/v1/clientes").param("page", "0").param("size", "2"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.items[0].nombre").value("Jose Lema"))
         .andExpect(jsonPath("$.page.number").value(0))

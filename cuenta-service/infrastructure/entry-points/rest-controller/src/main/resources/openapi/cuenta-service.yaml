@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: cuenta-service
-  version: 2.0.0
+  version: 1.0.0
   description: |
     Cuentas, movimientos y estado de cuenta (F1 a F4). Los clientes llegan desde cliente-service por
     Kafka a una proyección local: una cuenta solo se abre para un cliente conocido y activo.
@@ -9,7 +9,8 @@ info:
     Contrato fuente: las interfaces y modelos de los controladores se generan desde este archivo.
     Errores en formato RFC 9457 (`application/problem+json`) con `code` estable y `traceId`.
 servers:
-  - url: /api
+  - url: /api/v1
+    description: Versión 1 de la API (versionado en la ruta).
 tags:
   - name: Cuentas
     description: Apertura, consulta y modificación de cuentas (sin borrado; se desactivan).

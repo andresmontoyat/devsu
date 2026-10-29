@@ -23,7 +23,7 @@ class ClienteApiIT extends AbstractIntegrationTest {
 
   @Test
   void should_create_read_and_publish_a_client_end_to_end() {
-    RestClient client = RestClient.create(baseUrl());
+    RestClient client = RestClient.create(apiUrl());
     String identificacion = "IT" + System.nanoTime() % 1_000_000_000L;
 
     ResponseEntity<Map> creado =
@@ -68,6 +68,7 @@ class ClienteApiIT extends AbstractIntegrationTest {
 
     assertThat(docs.path("openapi").asString()).isEqualTo("3.0.3");
     assertThat(docs.path("info").path("title").asString()).isEqualTo("cliente-service");
+    assertThat(docs.at("/servers/0/url").asString()).isEqualTo("/api/v1");
     assertThat(docs.path("paths").size()).isEqualTo(2);
     assertThat(docs.path("paths").has("/clientes/{clienteId}")).isTrue();
     assertThat(

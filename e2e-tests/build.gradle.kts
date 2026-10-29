@@ -36,8 +36,8 @@ tasks.register<Test>("e2eTest") {
     testClassesDirs = sourceSets.test.get().output.classesDirs
     classpath = sourceSets.test.get().runtimeClasspath
     useJUnitPlatform()
-    systemProperty("e2e.clienteUrl", providers.environmentVariable("E2E_CLIENTE_URL").getOrElse("http://localhost:8081/api"))
-    systemProperty("e2e.cuentaUrl", providers.environmentVariable("E2E_CUENTA_URL").getOrElse("http://localhost:8082/api"))
+    systemProperty("e2e.clienteUrl", providers.environmentVariable("E2E_CLIENTE_URL").getOrElse("http://localhost:8081/api/v1"))
+    systemProperty("e2e.cuentaUrl", providers.environmentVariable("E2E_CUENTA_URL").getOrElse("http://localhost:8082/api/v1"))
     // Always hits the live stack: a cached "up to date" result would prove nothing.
     outputs.upToDateWhen { false }
     testLogging { events("passed", "skipped", "failed") }
