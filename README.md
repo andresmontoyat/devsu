@@ -23,34 +23,129 @@ datos y cómo se cubren rendimiento, escalabilidad y resiliencia — está en
 
 ## Despliegue con Docker
 
-Requisitos: Docker 24+ con Compose v2. No hace falta Java para levantar la solución.
+### Requisitos
+
+| Requisito | Detalle |
+|-----------|---------|
+| Docker | Docker Engine 24+ o Docker Desktop, con Compose v2 (`docker compose version`) |
+| Memoria | ~3 GB libres para Docker (el stack usa ~2 GB) |
+| Puertos libres | 8081, 8082, 3000, 5432, 9092 y 6379 (se pueden cambiar, ver [Configuración](#configuración)) |
+| Red | Solo la primera vez: descarga imágenes base y dependencias de Gradle |
+
+No hace falta Java: las imágenes se compilan dentro de Docker. Funciona en Linux, macOS (Intel y Apple
+Silicon) y Windows con WSL 2.
+
+### 1. Obtener el código
+
+```bash
+git clone https://github.com/andresmontoyat/devsu.git
+cd devsu
+```
+
+O descomprimir el `.zip` de la entrega y entrar en la carpeta `devsu-bank/`. Todos los comandos se ejecutan
+desde la raíz del proyecto.
+
+### 2. (Opcional) Configurar
+
+Sin configuración usa los valores por defecto. Para cambiar puertos o contraseñas:
+
+```bash
+cp docker/.env.example docker/.env   # y editar los valores
+```
+
+### 3. Levantar
 
 ```bash
 docker compose -f docker/docker-compose.yaml up -d --build --wait
 ```
 
-Levanta `postgres`, `kafka` (+ `kafka-init`, que crea los topics), `valkey`, `otel-lgtm` y los dos
-servicios; `--wait` termina cuando todos están `healthy`. La primera vez compila las imágenes (unos minutos).
+Compila las imágenes de los dos servicios (la primera vez tarda unos minutos), arranca la infraestructura en
+orden y termina cuando todo está sano. El orden lo garantizan los `healthcheck` y `depends_on`:
 
-| URL | Qué |
-|-----|-----|
-| http://localhost:8081/api/clientes | cliente-service |
-| http://localhost:8082/api/cuentas · `/api/movimientos` · `/api/reportes` | cuenta-service |
-| http://localhost:3000 | Grafana (trazas en Tempo, métricas en Prometheus) |
-| `localhost:5432` | PostgreSQL (`cliente_db`, `cuenta_db`) |
+1. `postgres` crea `cliente_db` y `cuenta_db` con sus roles; `kafka`, `valkey` y `otel-lgtm` arrancan en paralelo.
+2. `kafka-init` espera a Kafka, crea los topics y termina.
+3. `cliente-service` arranca cuando PostgreSQL está sano y los topics existen; `cuenta-service`, además,
+   cuando Valkey está sano.
 
-Al arrancar, Liquibase crea los esquemas y carga los **datos de ejemplo del enunciado** (contexto `demo`):
-los clientes Jose Lema, Marianela Montalvo y Juan Osorio y las cuentas del caso 2. Los casos 3 a 5 se
-ejecutan por la API: ver [Cómo probar la aplicación](#cómo-probar-la-aplicación).
+### 4. Verificar
 
 ```bash
-docker compose -f docker/docker-compose.yaml logs -f cuenta-service   # logs
-docker compose -f docker/docker-compose.yaml down -v                  # parar y borrar datos
+docker compose -f docker/docker-compose.yaml ps -a
 ```
 
-**Configuración.** Contraseñas y puertos tienen valores por defecto para uso local. Para cambiarlos, copiar
-`docker/.env.example` a `docker/.env` (por ejemplo, si el puerto 5432 ya está ocupado:
-`POSTGRES_PORT=15432`). `LIQUIBASE_CONTEXTS=` vacío arranca sin datos de ejemplo.
+Todos los servicios deben estar `Up (healthy)`, salvo `kafka-init`, que debe quedar `Exited (0)`. Prueba rápida:
+
+```bash
+curl -s http://localhost:8081/api/clientes; echo
+curl -s http://localhost:8082/api/cuentas/478758; echo
+```
+
+La primera devuelve los tres clientes de ejemplo y la segunda la cuenta 478758 de Jose Lema.
+
+### Servicios y puertos
+
+| Servicio | URL / host en tu máquina | Credenciales |
+|----------|--------------------------|--------------|
+| cliente-service | http://localhost:8081/api/clientes | — |
+| cuenta-service | http://localhost:8082/api/cuentas · `/api/movimientos` · `/api/reportes` | — |
+| Grafana (trazas en Tempo, métricas en Prometheus) | http://localhost:3000 | acceso anónimo |
+| PostgreSQL | `localhost:5432` — bases `cliente_db` y `cuenta_db` | `cliente_app` / `cliente_app`, `cuenta_app` / `cuenta_app` (solo DML) |
+| Kafka | `localhost:9092` — topic `clientes.cliente.events` (+ `.dlt`) | — |
+| Valkey | `localhost:6379` | — |
+
+El actuator de cada servicio (`9081`, `9082`) no se publica fuera de la red de compose. Consultar las bases sin
+cliente instalado:
+
+```bash
+docker compose -f docker/docker-compose.yaml exec postgres psql -U cliente_app -d cliente_db -c 'select * from cliente'
+docker compose -f docker/docker-compose.yaml exec postgres psql -U cuenta_app -d cuenta_db -c 'select * from cuenta'
+```
+
+### Datos de ejemplo
+
+Al arrancar, cada servicio aplica sus migraciones de Liquibase y carga los **datos del enunciado** (contexto
+`demo`): los clientes Jose Lema, Marianela Montalvo y Juan Osorio y las cuentas del caso 2 (478758, 225487,
+495878 y 496825). Los casos 3 a 5 se ejecutan por la API: ver
+[Cómo probar la aplicación](#cómo-probar-la-aplicación). `LIQUIBASE_CONTEXTS=` vacío en `docker/.env`
+arranca sin datos.
+
+### Operación
+
+| Acción | Comando |
+|--------|---------|
+| Ver logs | `docker compose -f docker/docker-compose.yaml logs -f cliente-service cuenta-service` |
+| Parar conservando los datos | `docker compose -f docker/docker-compose.yaml down` |
+| Parar y borrar los datos (volver a la seed) | `docker compose -f docker/docker-compose.yaml down -v` |
+| Recompilar un servicio tras cambiar código | `docker compose -f docker/docker-compose.yaml up -d --build --wait cuenta-service` |
+| Reiniciar un servicio | `docker compose -f docker/docker-compose.yaml restart cliente-service` |
+
+### Configuración
+
+Variables de `docker/.env` (todas opcionales; el valor por defecto se aplica si no están):
+
+| Variable | Defecto | Uso |
+|----------|---------|-----|
+| `CLIENTE_SERVICE_PORT` / `CUENTA_SERVICE_PORT` | `8081` / `8082` | Puertos publicados de las APIs |
+| `POSTGRES_PORT` · `KAFKA_PORT` · `VALKEY_PORT` · `GRAFANA_PORT` | `5432` · `9092` · `6379` · `3000` | Puertos publicados de la infraestructura |
+| `POSTGRES_PASSWORD` | `postgres` | Superusuario de PostgreSQL |
+| `CLIENTE_DB_OWNER_PASSWORD` · `CLIENTE_DB_APP_PASSWORD` | `cliente_owner` · `cliente_app` | Rol de migraciones y rol de la aplicación de `cliente_db` |
+| `CUENTA_DB_OWNER_PASSWORD` · `CUENTA_DB_APP_PASSWORD` | `cuenta_owner` · `cuenta_app` | Ídem para `cuenta_db` |
+| `LIQUIBASE_CONTEXTS` | `demo` | `demo` carga los datos de ejemplo; vacío, no |
+| `LOGGING_STRUCTURED_FORMAT_CONSOLE` | vacío | `logstash` o `ecs` para logs en JSON |
+
+Las contraseñas de PostgreSQL se aplican **solo al crear el volumen**: tras cambiarlas, recrear con `down -v`.
+Si se cambian los puertos de las APIs, ajustar también `cuentaUrl` / `clienteUrl` en el entorno de Postman y
+`E2E_CLIENTE_URL` / `E2E_CUENTA_URL` para `./gradlew e2eTest`.
+
+### Problemas frecuentes
+
+| Síntoma | Causa y solución |
+|---------|------------------|
+| `Bind for 0.0.0.0:5432 failed: port is already allocated` | Otro proceso usa el puerto: cambiarlo en `docker/.env` (p. ej. `POSTGRES_PORT=15432`) |
+| `--wait` falla o un servicio queda `unhealthy` | `docker compose -f docker/docker-compose.yaml logs <servicio>`; suele ser memoria insuficiente para Docker |
+| La compilación falla descargando Gradle o dependencias | Red intermitente en la primera compilación: repetir el `up --build` |
+| `422 CLIENTE_NO_DISPONIBLE` al abrir una cuenta de un cliente recién creado | El evento aún viaja por Kafka (milisegundos): reintentar |
+| Los casos 3 a 5 responden `409` o `422` | Ya se ejecutaron sobre este stack: `down -v` y volver a levantar |
 
 ## Cómo probar la aplicación
 
@@ -293,7 +388,7 @@ el reporte de cobertura en cada PR.
 | Comando | Qué hace | Requiere |
 |---------|----------|----------|
 | `docker compose -f docker/docker-compose.yaml up -d --build --wait` | Compila las imágenes y levanta todo el stack | Docker |
-| `docker compose -f docker/docker-compose.yaml ps` | Estado y salud de cada contenedor | Docker |
+| `docker compose -f docker/docker-compose.yaml ps -a` | Estado y salud de cada contenedor | Docker |
 | `docker compose -f docker/docker-compose.yaml logs -f cliente-service` | Logs de un servicio | Docker |
 | `docker compose -f docker/docker-compose.yaml down -v` | Para el stack y borra los datos | Docker |
 | `./gradlew build` | Compila y ejecuta todas las pruebas y los umbrales de cobertura | JDK 21, Docker |
