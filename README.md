@@ -216,7 +216,7 @@ Responde `422` con `"detail": "Saldo no disponible"` y el saldo no cambia.
 **Caso 5 — estado de cuenta de Marianela Montalvo** (F4):
 
 ```bash
-curl -s "$CUENTAS/reportes?fecha=$HOY,$HOY&cliente=$MARIANELA"; echo
+curl -s "$CUENTAS/reportes?fechaInicio=$HOY&fechaFin=$HOY&cliente=$MARIANELA"; echo
 ```
 
 Devuelve las filas `225487 · Corriente · 100 → 600 → 700` y `496825 · Ahorros · 540 → -540 → 0`, como en el
@@ -300,9 +300,9 @@ Contrato: `http://{servidor}:{puerto}/api/{recurso}`. Errores en formato
 | `GET` `PUT` `PATCH` `DELETE` | `/clientes/{clienteId}` | Obtener · reemplazar · modificar (`application/merge-patch+json`) · eliminar |
 | `POST` `GET` | `/cuentas` | Crear · listar (`?cliente=`) |
 | `GET` `PUT` `PATCH` | `/cuentas/{numeroCuenta}` | Obtener · reemplazar · modificar |
-| `POST` `GET` | `/movimientos` | Registrar (header opcional `Idempotency-Key`) · listar (`?cuenta=&fecha=`) |
+| `POST` `GET` | `/movimientos` | Registrar (header opcional `Idempotency-Key`) · listar (`?cuenta=&fechaInicio=&fechaFin=`) |
 | `GET` `PUT` | `/movimientos/{movimientoId}` | Obtener · corregir el último movimiento de la cuenta |
-| `GET` | `/reportes?fecha={inicio},{fin}&cliente={clienteId}` | Estado de cuenta (F4); `fecha` admite un día o un rango `yyyy-MM-dd` |
+| `GET` | `/reportes?fechaInicio={yyyy-MM-dd}&fechaFin={yyyy-MM-dd}&cliente={clienteId}` | Estado de cuenta (F4). La forma del enunciado `fecha={inicio},{fin}` sigue aceptada (deprecada) |
 
 Cuentas y movimientos no se eliminan (CRU, como pide el enunciado): una cuenta se desactiva con
 `PATCH {"estado": false}` y un movimiento erróneo se corrige, de modo que el historial sigue siendo auditable.
@@ -318,7 +318,7 @@ HTTP/1.1 422
  "status": 422, "detail": "Saldo no disponible", "code": "SALDO_NO_DISPONIBLE", "traceId": "..."}
 ```
 
-**Estado de cuenta (F4)** — `GET /api/reportes?fecha=2026-10-29,2026-10-29&cliente=0b6f5c9e-1d2a-4c3b-8e7f-1a2b3c4d5e02`.
+**Estado de cuenta (F4)** — `GET /api/reportes?fechaInicio=2026-10-29&fechaFin=2026-10-29&cliente=0b6f5c9e-1d2a-4c3b-8e7f-1a2b3c4d5e02`.
 Cada fila de `movimientos` usa las claves del JSON de ejemplo; `cuentas` añade los saldos y totales del rango:
 
 ```json
@@ -604,6 +604,7 @@ que los orquesta.
 | Problem Details (RFC 9457) | Todos los errores, con `code` estable ([ADR-0010](docs/adr/0010-errores-rfc-9457.md)) |
 | JSON Merge Patch (RFC 7396) | `PATCH /clientes/{id}` y `PATCH /cuentas/{id}` |
 | Paginación por offset con sobre | `{items, page}` en todos los listados |
+| Parámetro deprecado con alias | `fecha` en `/reportes` sigue aceptada junto a `fechaInicio`/`fechaFin` ([ADR-0016](docs/adr/0016-rango-de-fechas-con-fecha-inicio-y-fin.md)) |
 
 **Pruebas**
 
