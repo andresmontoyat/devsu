@@ -6,7 +6,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+### Added
+- Contrato OpenAPI por servicio (`openapi/cliente-service.yaml`, `openapi/cuenta-service.yaml`) con ejemplos
+  y todos los errores, publicado en `/api/v3/api-docs` con Swagger UI en `/api/swagger-ui.html`.
+- ADR-0015: contrato OpenAPI primero.
+
 ### Changed
+- La capa REST se genera desde el contrato con `openapi-generator` 7.22: los controladores implementan las
+  interfaces generadas y los DTOs escritos a mano se eliminaron. La API no cambia de comportamiento.
 - README: sección "Despliegue con Docker" completa: requisitos, obtención del código, configuración,
   orden de arranque, verificación, servicios con puertos y credenciales, operación, variables de `docker/.env`
   y problemas frecuentes.

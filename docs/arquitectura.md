@@ -99,7 +99,7 @@ flowchart TB
 |------|----------|-------------|
 | `domain` | `Cliente` (hereda de `Persona`), `Cuenta`, `Movimiento`, value objects (`Monto`, `NumeroCuenta`, `Identificacion`…), excepciones de negocio | Ninguna dependencia de framework |
 | `application` | Casos de uso, comandos, puertos, contrato del outbox | Anotaciones de Spring, `@Transactional` (la transacción es un puerto: `TransactionPort`) |
-| `infrastructure` | JPA, Kafka, Valkey, BCrypt, REST, métricas | Reglas de negocio |
+| `infrastructure` | JPA, Kafka, Valkey, BCrypt, REST (interfaces y modelos generados desde el contrato OpenAPI), métricas | Reglas de negocio |
 | `bootstrap` | `@Configuration`, `application.yml`, tests de integración, Karate y ArchUnit | Lógica |
 
 Las métricas (`usecase.operation`, `.calls`, `.errors`) se añaden con **decoradores** sobre los puertos de

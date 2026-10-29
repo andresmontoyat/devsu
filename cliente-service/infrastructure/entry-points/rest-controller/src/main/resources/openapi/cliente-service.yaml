@@ -1,0 +1,461 @@
+openapi: 3.0.3
+info:
+  title: cliente-service
+  version: 1.0.3
+  description: |
+    Clientes del banco (F1: CRUD). Cada alta, cambio o baja publica un evento en Kafka
+    (`clientes.cliente.events`) mediante un transactional outbox; cuenta-service lo consume.
+
+    Contrato fuente: las interfaces y modelos del controlador se generan desde este archivo.
+    Errores en formato RFC 9457 (`application/problem+json`) con `code` estable y `traceId`.
+servers:
+  - url: /api
+tags:
+  - name: Clientes
+    description: Alta, consulta, modificación y baja de clientes.
+
+paths:
+  /clientes:
+    get:
+      tags: [Clientes]
+      operationId: listarClientes
+      summary: Lista clientes paginados
+      description: Paginación por offset, ordenada por fecha de alta.
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Página de clientes.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientePage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+    post:
+      tags: [Clientes]
+      operationId: crearCliente
+      summary: Crea un cliente
+      description: La contraseña se guarda con BCrypt y nunca se devuelve. Publica `ClienteCreado`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClienteRequest'
+            example:
+              nombre: Jose Lema
+              genero: MASCULINO
+              edad: 35
+              identificacion: '1712345678'
+              direccion: Otavalo sn y principal
+              telefono: '098254785'
+              contrasena: '1234'
+              estado: true
+      responses:
+        '201':
+          description: Cliente creado.
+          headers:
+            Location:
+              description: URL del cliente creado.
+              schema:
+                type: string
+                format: uri
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClienteResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableContent'
+
+  /clientes/{clienteId}:
+    parameters:
+      - $ref: '#/components/parameters/ClienteId'
+    get:
+      tags: [Clientes]
+      operationId: obtenerCliente
+      summary: Obtiene un cliente
+      responses:
+        '200':
+          description: El cliente.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClienteResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [Clientes]
+      operationId: reemplazarCliente
+      summary: Reemplaza los datos de un cliente
+      description: |
+        La identificación no se puede cambiar (`422 IDENTIFICACION_INMUTABLE`). Si `contrasena` no se
+        envía, se conserva la actual. Publica `ClienteActualizado`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClienteUpdateRequest'
+      responses:
+        '200':
+          description: Cliente actualizado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClienteResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableContent'
+    patch:
+      tags: [Clientes]
+      operationId: modificarCliente
+      summary: Modifica algunos campos de un cliente (JSON Merge Patch)
+      description: |
+        RFC 7396. Solo se aplican los campos enviados. `null`, campos desconocidos o `identificacion`
+        se rechazan con `422`. Publica `ClienteActualizado`.
+      requestBody:
+        required: true
+        content:
+          application/merge-patch+json:
+            schema:
+              $ref: '#/components/schemas/ClientePatch'
+            example:
+              telefono: '0987654321'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClientePatch'
+      responses:
+        '200':
+          description: Cliente actualizado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClienteResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableContent'
+    delete:
+      tags: [Clientes]
+      operationId: eliminarCliente
+      summary: Elimina un cliente
+      description: Publica `ClienteEliminado`; cuenta-service deja de abrirle cuentas.
+      responses:
+        '204':
+          description: Cliente eliminado.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+components:
+  parameters:
+    ClienteId:
+      name: clienteId
+      in: path
+      required: true
+      description: Identificador público del cliente (UUID).
+      schema:
+        type: string
+      example: 0b6f5c9e-1d2a-4c3b-8e7f-1a2b3c4d5e02
+    Page:
+      name: page
+      in: query
+      description: Número de página, desde 0.
+      schema:
+        type: integer
+        format: int32
+        minimum: 0
+        default: 0
+    Size:
+      name: size
+      in: query
+      description: Elementos por página.
+      schema:
+        type: integer
+        format: int32
+        minimum: 1
+        maximum: 100
+        default: 20
+
+  responses:
+    BadRequest:
+      description: |
+        Datos inválidos: `VALIDACION_FALLIDA`, `DATO_INVALIDO`, `CUERPO_INVALIDO` o `PARAMETRO_INVALIDO`.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: https://api.devsu-bank.example/errores/validacion-fallida
+            title: Validacion fallida
+            status: 400
+            detail: La peticion tiene campos invalidos
+            instance: /api/clientes
+            code: VALIDACION_FALLIDA
+            traceId: 4bf92f3577b34da6a3ce929d0e0e4736
+            errors:
+              - field: nombre
+                message: must not be blank
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    NotFound:
+      description: '`CLIENTE_NO_ENCONTRADO`.'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    Conflict:
+      description: '`IDENTIFICACION_DUPLICADA` o `CONFLICTO_DE_CONCURRENCIA`.'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    UnprocessableContent:
+      description: |
+        Regla de negocio incumplida: `CLIENTE_MENOR_DE_EDAD`, `IDENTIFICACION_INMUTABLE` o
+        `REGLA_DE_NEGOCIO`.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+
+  schemas:
+    Genero:
+      type: string
+      description: Género de la persona.
+      enum: [MASCULINO, FEMENINO, OTRO]
+
+    ClienteRequest:
+      type: object
+      required: [nombre, genero, edad, identificacion, direccion, telefono, contrasena]
+      properties:
+        nombre:
+          type: string
+          maxLength: 100
+          pattern: '.*\S.*'
+        genero:
+          type: string
+          description: 'MASCULINO, FEMENINO u OTRO (sin distinguir mayúsculas).'
+          pattern: '.*\S.*'
+        edad:
+          type: integer
+          format: int32
+          minimum: 0
+          maximum: 150
+          description: Debe ser mayor o igual a 18.
+        identificacion:
+          type: string
+          maxLength: 20
+          pattern: '.*\S.*'
+          description: Única; 5 a 20 letras o dígitos.
+        direccion:
+          type: string
+          maxLength: 200
+          pattern: '.*\S.*'
+        telefono:
+          type: string
+          maxLength: 16
+          pattern: '.*\S.*'
+          description: 7 a 15 dígitos, opcionalmente con `+`.
+        contrasena:
+          type: string
+          format: password
+          writeOnly: true
+          minLength: 4
+          maxLength: 72
+          x-sensitive: true
+        estado:
+          type: boolean
+          default: true
+
+    ClienteUpdateRequest:
+      type: object
+      required: [nombre, genero, edad, identificacion, direccion, telefono, estado]
+      properties:
+        nombre:
+          type: string
+          maxLength: 100
+          pattern: '.*\S.*'
+        genero:
+          type: string
+          description: 'MASCULINO, FEMENINO u OTRO (sin distinguir mayúsculas).'
+          pattern: '.*\S.*'
+        edad:
+          type: integer
+          format: int32
+          minimum: 0
+          maximum: 150
+        identificacion:
+          type: string
+          maxLength: 20
+          pattern: '.*\S.*'
+          description: Debe coincidir con la actual.
+        direccion:
+          type: string
+          maxLength: 200
+          pattern: '.*\S.*'
+        telefono:
+          type: string
+          maxLength: 16
+          pattern: '.*\S.*'
+        contrasena:
+          type: string
+          format: password
+          writeOnly: true
+          minLength: 4
+          maxLength: 72
+          description: Opcional; si falta se conserva la actual.
+          x-sensitive: true
+        estado:
+          type: boolean
+
+    ClientePatch:
+      type: object
+      description: Campos modificables; todos opcionales, ninguno puede ser `null`.
+      additionalProperties: false
+      properties:
+        nombre:
+          type: string
+          maxLength: 100
+        genero:
+          type: string
+        edad:
+          type: integer
+          format: int32
+        direccion:
+          type: string
+          maxLength: 200
+        telefono:
+          type: string
+          maxLength: 16
+        contrasena:
+          type: string
+          format: password
+          writeOnly: true
+        estado:
+          type: boolean
+
+    ClienteResponse:
+      type: object
+      required: [clienteId, nombre, genero, edad, identificacion, direccion, telefono, estado]
+      properties:
+        clienteId:
+          type: string
+          format: uuid
+        nombre:
+          type: string
+        genero:
+          $ref: '#/components/schemas/Genero'
+        edad:
+          type: integer
+          format: int32
+        identificacion:
+          type: string
+        direccion:
+          type: string
+        telefono:
+          type: string
+        estado:
+          type: boolean
+      example:
+        clienteId: 0b6f5c9e-1d2a-4c3b-8e7f-1a2b3c4d5e02
+        nombre: Marianela Montalvo
+        genero: FEMENINO
+        edad: 30
+        identificacion: '1723456789'
+        direccion: Amazonas y NNUU
+        telefono: '097548965'
+        estado: true
+
+    ClientePage:
+      type: object
+      required: [items, page]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ClienteResponse'
+        page:
+          $ref: '#/components/schemas/PageMetadata'
+
+    PageMetadata:
+      type: object
+      required: [number, size, totalElements, totalPages]
+      properties:
+        number:
+          type: integer
+          format: int32
+        size:
+          type: integer
+          format: int32
+        totalElements:
+          type: integer
+          format: int64
+        totalPages:
+          type: integer
+          format: int64
+
+    Problem:
+      type: object
+      description: RFC 9457 Problem Details con los miembros `code`, `traceId` y `errors`.
+      required: [type, title, status, code]
+      properties:
+        type:
+          type: string
+          format: uri
+        title:
+          type: string
+        status:
+          type: integer
+          format: int32
+        detail:
+          type: string
+        instance:
+          type: string
+        code:
+          type: string
+          description: Código estable para decidir en el cliente; no cambia aunque cambie el texto.
+        traceId:
+          type: string
+          description: Identificador de la traza (W3C) para buscarla en Tempo.
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/FieldError'
+
+    FieldError:
+      type: object
+      required: [field, message]
+      properties:
+        field:
+          type: string
+        message:
+          type: string

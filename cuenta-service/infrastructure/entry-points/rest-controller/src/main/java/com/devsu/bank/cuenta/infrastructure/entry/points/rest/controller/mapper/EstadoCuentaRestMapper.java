@@ -1,10 +1,13 @@
 package com.devsu.bank.cuenta.infrastructure.entry.points.rest.controller.mapper;
 
-import com.devsu.bank.cuenta.domain.model.TipoCuenta;
 import com.devsu.bank.cuenta.domain.reporte.DetalleMovimiento;
 import com.devsu.bank.cuenta.domain.reporte.EstadoCuenta;
 import com.devsu.bank.cuenta.domain.reporte.ResumenCuenta;
-import com.devsu.bank.cuenta.infrastructure.entry.points.rest.controller.dto.EstadoCuentaResponse;
+import com.devsu.bank.cuenta.infrastructure.entry.points.rest.controller.generated.model.ClienteResumen;
+import com.devsu.bank.cuenta.infrastructure.entry.points.rest.controller.generated.model.CuentaResumen;
+import com.devsu.bank.cuenta.infrastructure.entry.points.rest.controller.generated.model.EstadoCuentaResponse;
+import com.devsu.bank.cuenta.infrastructure.entry.points.rest.controller.generated.model.FilaEstadoCuenta;
+import com.devsu.bank.cuenta.infrastructure.entry.points.rest.controller.generated.model.TipoCuenta;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.Locale;
@@ -19,18 +22,17 @@ public final class EstadoCuentaRestMapper {
   public static EstadoCuentaResponse toResponse(EstadoCuenta estado, ZoneId zona) {
     DateTimeFormatter formato = DateTimeFormatter.ofPattern(FORMATO_FECHA).withZone(zona);
     return new EstadoCuentaResponse(
-        new EstadoCuentaResponse.Cliente(
-            estado.cliente().clienteId().value().toString(), estado.cliente().nombre()),
+        new ClienteResumen(estado.cliente().clienteId().value(), estado.cliente().nombre()),
         estado.rango().desde(),
         estado.rango().hasta(),
         estado.cuentas().stream().map(EstadoCuentaRestMapper::cuenta).toList(),
         estado.movimientos().stream().map(m -> movimiento(m, formato)).toList());
   }
 
-  private static EstadoCuentaResponse.Cuenta cuenta(ResumenCuenta r) {
-    return new EstadoCuentaResponse.Cuenta(
+  private static CuentaResumen cuenta(ResumenCuenta r) {
+    return new CuentaResumen(
         r.numeroCuenta().value(),
-        r.tipo().name(),
+        TipoCuenta.fromValue(r.tipo().name()),
         r.saldoInicial().value(),
         r.saldoDisponible().value(),
         r.activa(),
@@ -38,9 +40,8 @@ public final class EstadoCuentaRestMapper {
         r.totalDebitos().value());
   }
 
-  private static EstadoCuentaResponse.Movimiento movimiento(
-      DetalleMovimiento d, DateTimeFormatter formato) {
-    return new EstadoCuentaResponse.Movimiento(
+  private static FilaEstadoCuenta movimiento(DetalleMovimiento d, DateTimeFormatter formato) {
+    return new FilaEstadoCuenta(
         formato.format(d.fecha()),
         d.cliente(),
         d.numeroCuenta().value(),
@@ -52,7 +53,7 @@ public final class EstadoCuentaRestMapper {
   }
 
   /** "Ahorros" / "Corriente", as written in the exercise. */
-  private static String legible(TipoCuenta tipo) {
+  private static String legible(com.devsu.bank.cuenta.domain.model.TipoCuenta tipo) {
     String nombre = tipo.name().toLowerCase(Locale.ROOT);
     return Character.toUpperCase(nombre.charAt(0)) + nombre.substring(1);
   }
