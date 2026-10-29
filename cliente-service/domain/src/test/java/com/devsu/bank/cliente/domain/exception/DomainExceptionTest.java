@@ -23,4 +23,11 @@ class DomainExceptionTest {
         .isInstanceOf(DomainException.class)
         .hasMessageContaining("1712345678");
   }
+
+  @Test
+  void should_name_the_client_when_modified_concurrently() {
+    assertThat(new ClienteModificadoConcurrentementeException(CLIENTE_ID))
+        .isInstanceOf(DomainException.class)
+        .hasMessageContaining(CLIENTE_ID.value().toString());
+  }
 }
