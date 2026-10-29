@@ -258,6 +258,9 @@ paths:
                 instance: /api/movimientos
                 code: SALDO_NO_DISPONIBLE
                 traceId: 4bf92f3577b34da6a3ce929d0e0e4736
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
 
@@ -388,10 +391,16 @@ components:
         application/problem+json:
           schema:
             $ref: '#/components/schemas/Problem'
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Problem'
     NotFound:
       description: '`CUENTA_NO_ENCONTRADA`, `MOVIMIENTO_NO_ENCONTRADO` o `CLIENTE_NO_ENCONTRADO`.'
       content:
         application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+        application/json:
           schema:
             $ref: '#/components/schemas/Problem'
     Conflict:
@@ -402,12 +411,18 @@ components:
         application/problem+json:
           schema:
             $ref: '#/components/schemas/Problem'
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Problem'
     UnprocessableContent:
       description: |
         Regla de negocio incumplida: `CLIENTE_NO_DISPONIBLE`, `CUENTA_INACTIVA`, `SALDO_NO_DISPONIBLE`,
         `VALOR_MOVIMIENTO_INVALIDO` o `REGLA_DE_NEGOCIO`.
       content:
         application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+        application/json:
           schema:
             $ref: '#/components/schemas/Problem'
     ServiceUnavailable:
@@ -421,6 +436,9 @@ components:
             type: integer
       content:
         application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+        application/json:
           schema:
             $ref: '#/components/schemas/Problem'
 

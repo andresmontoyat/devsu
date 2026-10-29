@@ -214,10 +214,16 @@ components:
             errors:
               - field: nombre
                 message: must not be blank
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Problem'
     NotFound:
       description: '`CLIENTE_NO_ENCONTRADO`.'
       content:
         application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+        application/json:
           schema:
             $ref: '#/components/schemas/Problem'
     Conflict:
@@ -226,12 +232,18 @@ components:
         application/problem+json:
           schema:
             $ref: '#/components/schemas/Problem'
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Problem'
     UnprocessableContent:
       description: |
         Regla de negocio incumplida: `CLIENTE_MENOR_DE_EDAD`, `IDENTIFICACION_INMUTABLE` o
         `REGLA_DE_NEGOCIO`.
       content:
         application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+        application/json:
           schema:
             $ref: '#/components/schemas/Problem'
 
