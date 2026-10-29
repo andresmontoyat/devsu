@@ -30,6 +30,9 @@ class DomainExceptionTest {
         .hasMessageContaining(CLIENTE.value().toString());
     assertThat(new MovimientoNoEncontradoException(MOVIMIENTO))
         .hasMessageContaining(MOVIMIENTO.value().toString());
+    assertThat(new ClienteNoEncontradoException(CLIENTE))
+        .hasMessageContaining(CLIENTE.value().toString());
+    assertThat(new SaldoInicialNoModificableException(NUMERO)).hasMessageContaining("478758");
     assertThat(new MovimientoNoModificableException(MOVIMIENTO))
         .isInstanceOf(DomainException.class)
         .hasMessageContaining(MOVIMIENTO.value().toString());
