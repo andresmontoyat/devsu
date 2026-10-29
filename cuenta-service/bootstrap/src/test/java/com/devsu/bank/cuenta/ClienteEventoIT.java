@@ -39,7 +39,7 @@ class ClienteEventoIT extends AbstractIntegrationTest {
     String numero = String.valueOf(200_000_000L + System.nanoTime() % 700_000_000L);
     RestClient client =
         RestClient.builder()
-            .baseUrl(baseUrl())
+            .baseUrl(apiUrl())
             .defaultStatusHandler(HttpStatusCode::isError, (req, res) -> {})
             .build();
 

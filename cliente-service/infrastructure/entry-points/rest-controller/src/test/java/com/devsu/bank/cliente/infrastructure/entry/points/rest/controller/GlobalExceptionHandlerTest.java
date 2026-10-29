@@ -88,14 +88,14 @@ class GlobalExceptionHandlerTest {
 
   @Test
   void should_map_an_unreadable_body_to_400() throws Exception {
-    mvc.perform(post("/clientes").contentType(MediaType.APPLICATION_JSON).content("{nope"))
+    mvc.perform(post("/v1/clientes").contentType(MediaType.APPLICATION_JSON).content("{nope"))
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.code").value("CUERPO_INVALIDO"));
   }
 
   @Test
   void should_map_an_unsupported_media_type_to_415() throws Exception {
-    mvc.perform(post("/clientes").contentType(MediaType.TEXT_PLAIN).content("x"))
+    mvc.perform(post("/v1/clientes").contentType(MediaType.TEXT_PLAIN).content("x"))
         .andExpect(status().isUnsupportedMediaType())
         .andExpect(jsonPath("$.code").value("TIPO_DE_CONTENIDO_NO_SOPORTADO"));
   }
@@ -109,12 +109,13 @@ class GlobalExceptionHandlerTest {
 
   @Test
   void should_map_a_wrong_query_parameter_type_to_400() throws Exception {
-    mvc.perform(get("/clientes").param("page", "uno"))
+    mvc.perform(get("/v1/clientes").param("page", "uno"))
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.code").value("PARAMETRO_INVALIDO"));
   }
 
   private org.springframework.test.web.servlet.ResultActions crear() throws Exception {
-    return mvc.perform(post("/clientes").contentType(MediaType.APPLICATION_JSON).content(CUERPO));
+    return mvc.perform(
+        post("/v1/clientes").contentType(MediaType.APPLICATION_JSON).content(CUERPO));
   }
 }

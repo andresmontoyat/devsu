@@ -24,7 +24,7 @@ Feature: /clientes — CRUD completo de clientes (F1)
     And request nuevoCliente
     When method post
     Then status 201
-    And match header Location contains '/api/clientes/'
+    And match header Location contains '/api/v1/clientes/'
     And match response ==
       """
       {

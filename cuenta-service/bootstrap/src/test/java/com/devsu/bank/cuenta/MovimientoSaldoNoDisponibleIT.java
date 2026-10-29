@@ -33,7 +33,7 @@ class MovimientoSaldoNoDisponibleIT extends AbstractIntegrationTest {
   void abrirCuentaConCincuenta() {
     client =
         RestClient.builder()
-            .baseUrl(baseUrl())
+            .baseUrl(apiUrl())
             .defaultStatusHandler(HttpStatusCode::isError, (req, res) -> {})
             .build();
     numeroCuenta = String.valueOf(100_000_000L + System.nanoTime() % 900_000_000L);

@@ -14,7 +14,7 @@ class CuentaKarateTest extends AbstractIntegrationTest {
     SuiteResult result =
         Runner.path("classpath:karate")
             .tags("~@e2e")
-            .systemProperty("karate.baseUrl", baseUrl())
+            .systemProperty("karate.baseUrl", apiUrl())
             .outputDir("build/karate-reports")
             .parallel(1);
 
