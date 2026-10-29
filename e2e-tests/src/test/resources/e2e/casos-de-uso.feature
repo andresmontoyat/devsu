@@ -5,7 +5,6 @@ Feature: casos de uso del enunciado contra el stack de docker compose
     * def zona = Java.type('java.time.ZoneId').of('America/Guayaquil')
     * def hoy = Java.type('java.time.LocalDate').now(zona)
     * def fechaReporte = hoy.format(Java.type('java.time.format.DateTimeFormatter').ofPattern('d/M/yyyy'))
-    * def rango = hoy + ',' + hoy
     * def sufijo = '' + Java.type('java.lang.System').nanoTime()
     # Fresh account numbers per run, so the suite can be repeated against the same stack.
     * def cuenta = function(n){ return '6' + sufijo.substring(sufijo.length - 8) + n }
@@ -45,7 +44,8 @@ Feature: casos de uso del enunciado contra el stack de docker compose
 
     # 5. Listado de movimientos por fechas y usuario (F4)
     Given path 'reportes'
-    And param fecha = rango
+    And param fechaInicio = hoy
+    And param fechaFin = hoy
     And param cliente = marianela.clienteId
     When method get
     Then status 200
@@ -72,7 +72,8 @@ Feature: casos de uso del enunciado contra el stack de docker compose
     Then status 200
     Given url cuentaUrl
     And path 'reportes'
-    And param fecha = rango
+    And param fechaInicio = hoy
+    And param fechaFin = hoy
     And param cliente = cliente.clienteId
     And retry until responseStatus == 200 && response.cliente.nombre == 'Ana Torres Vega'
     When method get

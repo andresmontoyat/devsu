@@ -18,7 +18,8 @@ Feature: /reportes — estado de cuenta por rango de fechas y cliente (F4)
     Then status 201
 
     Given path 'reportes'
-    And param fecha = hoy + ',' + hoy
+    And param fechaInicio = hoy
+    And param fechaFin = hoy
     And param cliente = juan
     When method get
     Then status 200
@@ -41,7 +42,8 @@ Feature: /reportes — estado de cuenta por rango de fechas y cliente (F4)
 
   Scenario: un rango invertido se rechaza
     Given path 'reportes'
-    And param fecha = '2022-02-28,2022-02-01'
+    And param fechaInicio = '2022-02-28'
+    And param fechaFin = '2022-02-01'
     And param cliente = juan
     When method get
     Then status 400
@@ -49,8 +51,17 @@ Feature: /reportes — estado de cuenta por rango de fechas y cliente (F4)
 
   Scenario: un cliente desconocido devuelve 404
     Given path 'reportes'
-    And param fecha = hoy
+    And param fechaInicio = hoy
+    And param fechaFin = hoy
     And param cliente = '11111111-1111-1111-1111-111111111111'
     When method get
     Then status 404
     And match response.code == 'CLIENTE_NO_ENCONTRADO'
+
+  Scenario: la forma del enunciado fecha=inicio,fin sigue aceptada (deprecada)
+    Given path 'reportes'
+    And param fecha = hoy + ',' + hoy
+    And param cliente = juan
+    When method get
+    Then status 200
+    And match response.cliente.nombre == 'Juan Osorio'

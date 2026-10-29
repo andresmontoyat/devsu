@@ -110,3 +110,33 @@ Feature: /movimientos — registro de movimientos (F1, F2, F3)
     Then status 200
     And match response.items == '#[1]'
     And match response.page.totalElements == 1
+
+  Scenario: el listado filtra por cuenta y por rango de fechas
+    * def hoy = '' + Java.type('java.time.LocalDate').now(Java.type('java.time.ZoneId').of('America/Guayaquil'))
+    Given path 'movimientos'
+    And request { numeroCuenta: '#(numero)', valor: 25 }
+    When method post
+    Then status 201
+
+    Given path 'movimientos'
+    And param cuenta = numero
+    And param fechaInicio = hoy
+    And param fechaFin = hoy
+    When method get
+    Then status 200
+    And match response.items == '#[1]'
+    And match response.items[0] contains { numeroCuenta: '#(numero)', valor: 25.00 }
+
+    Given path 'movimientos'
+    And param cuenta = numero
+    And param fechaInicio = '2020-01-01'
+    And param fechaFin = '2020-01-31'
+    When method get
+    Then status 200
+    And match response.items == '#[0]'
+
+    Given path 'movimientos'
+    And param fechaInicio = hoy
+    When method get
+    Then status 400
+    And match response.code == 'RANGO_FECHAS_INVALIDO'
