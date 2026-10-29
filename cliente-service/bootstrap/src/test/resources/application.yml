@@ -26,3 +26,16 @@ logging:
   structured:
     format:
       console: ""
+
+outbox:
+  enabled: true
+  batch-size: 50
+  max-attempts: 3
+  claim-ttl: 1m
+  backoff:
+    base-delay: 1s
+    max-delay: 5s
+  publisher:
+    send-timeout: 5s
+  task:
+    fixed-delay: 1s
