@@ -1,0 +1,84 @@
+import com.diffplug.gradle.spotless.SpotlessExtension
+import io.spring.gradle.dependencymanagement.dsl.DependencyManagementExtension
+
+plugins {
+    java
+    jacoco
+    id("org.springframework.boot") apply false
+    id("io.spring.dependency-management")
+    id("com.diffplug.spotless")
+}
+
+allprojects {
+    group = "com.devsu.bank"
+    version = "1.0.0"
+
+    repositories {
+        mavenCentral()
+    }
+}
+
+subprojects {
+    apply(plugin = "java")
+    // NOTE: org.springframework.boot is applied only to :bootstrap, the single BootJar producer.
+    apply(plugin = "io.spring.dependency-management")
+    apply(plugin = "com.diffplug.spotless")
+    apply(plugin = "jacoco")
+
+    configure<JavaPluginExtension> {
+        toolchain {
+            languageVersion.set(JavaLanguageVersion.of(21))
+        }
+    }
+
+    configure<DependencyManagementExtension> {
+        imports {
+            mavenBom("org.springframework.boot:spring-boot-dependencies:${property("spring.boot.version")}")
+        }
+    }
+
+    dependencies {
+        "testImplementation"("org.junit.jupiter:junit-jupiter")
+        "testImplementation"("org.assertj:assertj-core")
+        "testImplementation"("org.mockito:mockito-junit-jupiter")
+        "testRuntimeOnly"("org.junit.platform:junit-platform-launcher")
+    }
+
+    tasks.withType<JavaCompile>().configureEach {
+        options.compilerArgs.add("-parameters")
+        options.encoding = "UTF-8"
+        options.release.set(21)
+    }
+
+    tasks.withType<Test>().configureEach {
+        useJUnitPlatform()
+        finalizedBy("jacocoTestReport")
+        testLogging { events("passed", "skipped", "failed") }
+    }
+
+    tasks.named<JacocoReport>("jacocoTestReport") {
+        reports {
+            xml.required = true
+            html.required = true
+        }
+    }
+
+    configure<SpotlessExtension> {
+        java {
+            googleJavaFormat(property("google.java.format.version") as String)
+            target("src/**/*.java")
+            trimTrailingWhitespace()
+            endWithNewline()
+            removeUnusedImports()
+        }
+    }
+}
+
+project(":bootstrap") {
+    apply(plugin = "org.springframework.boot")
+}
+
+// Lets the repository root drive the whole service through one task path (composite build).
+listOf("build", "clean", "test", "spotlessApply", "spotlessCheck").forEach { taskName ->
+    tasks.named(taskName) { dependsOn(subprojects.map { "${it.path}:$taskName" }) }
+}
